@@ -8,18 +8,17 @@ export interface Message {
   timestamp: Date;
   avatar?: string;
   image?: string;
-  isOwn: boolean;
 }
 
 interface ChatMessageProps {
   message: Message;
+  currentUser: string;
 }
 
-export const ChatMessage = ({ message }: ChatMessageProps) => {
+export const ChatMessage = ({ message, currentUser }: ChatMessageProps) => {
+  const isOwn = message.username === currentUser;
   return (
-    <div className={`flex space-x-3 p-3 rounded-lg transition-colors hover:bg-chat-hover ${
-      message.isOwn ? 'bg-chat-bubble-own' : 'bg-chat-bubble-other'
-    }`}>
+    <div className={`flex space-x-3 p-3 rounded-lg transition-colors hover:bg-chat-hover max-w-[70%] ${isOwn ? 'ml-auto bg-chat-bubble-own' : 'bg-chat-bubble-other'}`}>
       {/* Avatar */}
       <div className="flex-shrink-0">
         <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center border border-border overflow-hidden">
@@ -36,7 +35,7 @@ export const ChatMessage = ({ message }: ChatMessageProps) => {
       </div>
 
       {/* Message Content */}
-      <div className="flex-1 min-w-0">
+      <div className="min-w-0">
         <div className="flex items-center space-x-2 mb-1">
           <span className="font-medium text-foreground text-sm">
             {message.username}

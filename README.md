@@ -6,10 +6,20 @@ A robust, real-time group chatroom with custom avatar upload, built with React, 
 
 - Real-time chat with instant message delivery
 - Custom avatar upload and display for each user
+- Image sharing in chat messages with automatic resizing
 - User list with avatars
 - Responsive UI with shadcn-ui and Tailwind CSS
 - All state synchronized via backend events (no local-only state)
 - Deep logging and error handling
+
+## Image Upload
+
+The chat supports image sharing with the following features:
+- Click the image icon in the chat input to select an image
+- Images are automatically resized and optimized
+- Maximum file size: 5MB
+- Supported formats: All standard image formats (JPEG, PNG, GIF, etc.)
+- Images are displayed inline with chat messages
 
 ## Architecture
 

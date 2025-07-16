@@ -26,10 +26,18 @@ io.on('connection', (socket) => {
     console.log(`[emit] history ->`, messages);
 
     socket.on('join', ({ username, avatar }) => {
-        console.log(`[backend] join event received from ${socket.id}:`, { username, avatar });
+        // Enforce unique usernames
+        const nameTaken = Object.values(users).some(u => u.username === username);
+        if (nameTaken) {
+            socket.emit('join_error', { message: 'Username already taken. Please choose another.' });
+            console.log(`[backend] join rejected for duplicate username: ${username}`);
+            return;
+        }
         users[socket.id] = { username, avatar, isOnline: true };
-        io.emit('users', Object.values(users));
-        console.log(`[emit] users ->`, Object.values(users));
+        // Emit only unique usernames to clients
+        const uniqueUsers = Object.values(users).filter((u, i, arr) => arr.findIndex(other => other.username === u.username) === i);
+        io.emit('users', uniqueUsers);
+        console.log(`[emit] users ->`, uniqueUsers);
     });
 
     socket.on('message', (msg) => {
@@ -52,8 +60,10 @@ io.on('connection', (socket) => {
         if (users[socket.id]) {
             console.log(`[disconnect] ${users[socket.id].username} (${socket.id})`);
             delete users[socket.id];
-            io.emit('users', Object.values(users));
-            console.log(`[emit] users ->`, Object.values(users));
+            // Emit only unique usernames to clients
+            const uniqueUsers = Object.values(users).filter((u, i, arr) => arr.findIndex(other => other.username === u.username) === i);
+            io.emit('users', uniqueUsers);
+            console.log(`[emit] users ->`, uniqueUsers);
         }
     });
 

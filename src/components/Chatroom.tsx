@@ -34,6 +34,12 @@ export const Chatroom = () => {
       console.log("[socket] received message", msg);
       setMessages(prev => [...prev, msg]);
     });
+    socket.on("join_error", (err) => {
+      toast({ title: "Username Error", description: err.message, variant: "destructive" });
+      setShowUsernameModal(true);
+      setCurrentUser("");
+      setUserAvatar(null);
+    });
 
     // On connect, emit join if user is set
     socket.on("connect", () => {
@@ -134,8 +140,7 @@ export const Chatroom = () => {
         content: content,
         timestamp: new Date(),
         avatar: userAvatar || undefined,
-        isOwn: true
-      };
+              };
       
       socket.emit("message", textMessage);
       return;
@@ -157,8 +162,7 @@ export const Chatroom = () => {
         timestamp: new Date(),
         avatar: userAvatar || undefined,
         image: base64,
-        isOwn: true
-      };
+              };
       
       socket.emit("message", imageMessage);
     } catch (error) {
@@ -200,7 +204,7 @@ export const Chatroom = () => {
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {messages.map((message) => (
-            <ChatMessage key={message.id} message={message} />
+            <ChatMessage key={message.id} message={message} currentUser={currentUser} />
           ))}
           <div ref={messagesEndRef} />
         </div>
