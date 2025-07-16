@@ -80,8 +80,11 @@ io.on('connection', (socket) => {
     });
 });
 
-// Catch-all: serve index.html for any unknown routes (for React Router), but avoid socket.io paths
-app.get(/^(?!\/socket\.io).*/, (req, res) => {
+// Catch-all: serve index.html for any unknown routes (for React Router), but do not intercept WebSocket upgrade requests
+app.get('*', (req, res, next) => {
+    if (req.headers.upgrade && req.headers.upgrade.toLowerCase() === 'websocket') {
+        return next();
+    }
     res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
