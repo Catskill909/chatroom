@@ -1,6 +1,14 @@
 // Socket.IO client singleton (outside component)
 import { io } from "socket.io-client";
-const socket = io("http://localhost:3001");
+// Use environment variable for Socket.IO URL if set, otherwise default to relative URL (same origin)
+const socket = io(
+  import.meta.env.VITE_SOCKET_URL ? import.meta.env.VITE_SOCKET_URL : '/',
+  {
+    // Allow credentials/cookies if needed for future expansion
+    withCredentials: false,
+    transports: ['websocket', 'polling'], // robust fallback for most hosts
+  }
+);
 
 import { useState, useEffect, useRef } from "react";
 import { UsernameModal } from "./UsernameModal";
