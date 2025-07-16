@@ -3,6 +3,14 @@ import http from 'http';
 import { Server } from 'socket.io';
 
 const app = express();
+
+// Serve frontend static files from /dist
+import path from 'path';
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+app.use(express.static(path.join(__dirname, 'dist')));
+
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: { origin: '*' }
@@ -70,6 +78,11 @@ io.on('connection', (socket) => {
     socket.on('error', (err) => {
         console.error(`[socket error]`, err);
     });
+});
+
+// Catch-all: serve index.html for any unknown routes (for React Router), but avoid socket.io paths
+app.get(/^(?!\/socket\.io).*/, (req, res) => {
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 const PORT = process.env.PORT || 3001;
