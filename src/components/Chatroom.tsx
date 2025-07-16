@@ -85,21 +85,89 @@ export const Chatroom = () => {
     });
   };
 
-  const handleSendMessage = (content: string, image?: File) => {
+  // Resize image before converting to base64 - SAME function used for avatars
+  const resizeImage = (file: File, maxSize = 800): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new window.Image();
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          let width = img.width;
+          let height = img.height;
+          if (width > height) {
+            if (width > maxSize) {
+              height *= maxSize / width;
+              width = maxSize;
+            }
+          } else {
+            if (height > maxSize) {
+              width *= maxSize / height;
+              height = maxSize;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return reject("No canvas context");
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL("image/jpeg", 0.85));
+        };
+        img.onerror = reject;
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleSendMessage = async (content: string, image?: File) => {
     if (!currentUser) return;
-
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      username: currentUser,
-      content,
-      timestamp: new Date(),
-      avatar: userAvatar || undefined,
-      image: undefined,
-      isOwn: true,
-    };
-
-    socket.emit("message", newMessage);
-    console.log("[socket] emitted message", newMessage);
+    
+    console.log("[chat] handleSendMessage called", { hasContent: !!content.trim(), hasImage: !!image });
+    
+    // For text-only messages, send immediately
+    if (!image) {
+      const textMessage: Message = {
+        id: Date.now().toString(),
+        username: currentUser,
+        content: content,
+        timestamp: new Date(),
+        avatar: userAvatar || undefined,
+        isOwn: true
+      };
+      
+      socket.emit("message", textMessage);
+      return;
+    }
+    
+    // For messages with images - use the same method as avatar uploads
+    try {
+      console.log("[chat] Processing image for chat", { fileName: image.name, fileSize: image.size });
+      
+      // Convert and resize image using the same function as avatars
+      const base64 = await resizeImage(image, 800);
+      console.log("[chat] Image converted to base64, length:", base64.length);
+      
+      // Create and send message with image
+      const imageMessage: Message = {
+        id: Date.now().toString(),
+        username: currentUser,
+        content: content,
+        timestamp: new Date(),
+        avatar: userAvatar || undefined,
+        image: base64,
+        isOwn: true
+      };
+      
+      socket.emit("message", imageMessage);
+    } catch (error) {
+      console.error("[chat] Error processing image:", error);
+      toast({ 
+        title: "Error", 
+        description: "Failed to process image." 
+      });
+    }
   };
 
 

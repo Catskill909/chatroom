@@ -16,9 +16,20 @@ export const ChatInput = ({ onSendMessage }: ChatInputProps) => {
   const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // Validate file type and size
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        alert('Image is too large. Maximum size is 5MB.');
+        return;
+      }
+      
       setSelectedImage(file);
       const url = URL.createObjectURL(file);
       setImagePreview(url);
+      console.log('[chat] Image selected:', { name: file.name, size: file.size, type: file.type });
     }
   };
 

@@ -33,10 +33,19 @@ io.on('connection', (socket) => {
     });
 
     socket.on('message', (msg) => {
-        console.log(`[recv] message`, msg);
+        console.log(`[recv] message received from ${socket.id}`);
+        
+        // Check if message contains an image and log accordingly
+        if (msg.image) {
+            console.log(`[recv] message with image, image data length: ${msg.image.length}`);
+            console.log(`[recv] image data starts with: ${msg.image.substring(0, 50)}...`);
+        } else {
+            console.log(`[recv] text-only message: "${msg.content}"`);
+        }
+        
         messages.push(msg);
         io.emit('message', msg);
-        console.log(`[emit] message ->`, msg);
+        console.log(`[emit] broadcasted message to all clients`);
     });
 
     socket.on('disconnect', () => {

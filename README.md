@@ -1,73 +1,68 @@
-# Welcome to your Lovable project
+# Real-Time Chatroom
 
-## Project info
+A robust, real-time group chatroom with custom avatar upload, built with React, TypeScript, Vite, shadcn-ui, and Tailwind CSS. All users see the same chat messages and user list in real time. Avatars are uploaded as base64 strings and shared across all clients.
 
-**URL**: https://lovable.dev/projects/3697c822-9de8-41f1-a1e9-fe0982b605ec
+## Features
 
-## How can I edit this code?
+- Real-time chat with instant message delivery
+- Custom avatar upload and display for each user
+- User list with avatars
+- Responsive UI with shadcn-ui and Tailwind CSS
+- All state synchronized via backend events (no local-only state)
+- Deep logging and error handling
 
-There are several ways of editing your application.
+## Architecture
 
-**Use Lovable**
+- **Frontend:** React + TypeScript, modular components for chat, user management, avatars, and input
+- **Backend:** Node.js server (see `server.js`) manages users, messages, and avatar data in memory
+- **Communication:** WebSockets for real-time updates
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/3697c822-9de8-41f1-a1e9-fe0982b605ec) and start prompting.
+## Setup & Usage
 
-Changes made via Lovable will be committed automatically to this repo.
+### Prerequisites
 
-**Use your preferred IDE**
+- Node.js & npm installed ([install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating))
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+### Local Development
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+# Clone the repository
+git clone https://github.com/Catskill909/chatroom.git
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# Navigate to the project directory
+cd chatroom
 
-# Step 3: Install the necessary dependencies.
-npm i
+# Install dependencies
+npm install
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start the backend server
+node server.js
+
+# In a separate terminal, start the frontend dev server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+- Open your browser at `http://localhost:5173` (or the port shown in the terminal).
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Project Structure
 
-**Use GitHub Codespaces**
+- `src/components/` — React components for chatroom, messages, avatars, user modal, etc.
+- `server.js` — Node.js backend for real-time communication and state management
+- `plan.md` — Architecture plan and implementation notes
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
+## Technologies Used
 
 - Vite
 - TypeScript
 - React
 - shadcn-ui
 - Tailwind CSS
+- Node.js (backend)
 
-## How can I deploy this project?
+## Deployment
 
-Simply open [Lovable](https://lovable.dev/projects/3697c822-9de8-41f1-a1e9-fe0982b605ec) and click on Share -> Publish.
+You can deploy this app to any Node.js-compatible host. For production, consider using services like Vercel, Netlify (frontend), and a Node.js host (backend).
 
-## Can I connect a custom domain to my Lovable project?
+## Further Reading
 
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+See [`plan.md`](plan.md:1) for a detailed architecture plan, implementation mandate, and troubleshooting notes.

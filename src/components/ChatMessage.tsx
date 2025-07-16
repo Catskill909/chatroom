@@ -50,8 +50,10 @@ export const ChatMessage = ({ message }: ChatMessageProps) => {
           <div className="mb-2">
             <img
               src={message.image}
-              alt="Uploaded image"
+              alt="Shared image"
               className="max-w-sm max-h-64 rounded-lg border border-border object-cover"
+              onLoad={() => console.log("[chat] Image loaded in message")}
+              onError={(e) => console.error("[chat] Image load error:", e)}
             />
           </div>
         )}

@@ -23,33 +23,6 @@ Create a robust, classic real-time chatroom where:
 
 ---
 
-## Lessons Learned: What Went Wrong and How to Prevent It
-
-### What went wrong:
-- The AI assistant repeatedly tasked the user with manual debugging, code changes, and configuration, instead of directly fixing issues.
-- The root cause (oversized avatar payloads causing 413 errors) was not diagnosed quickly, leading to wasted time and frustration.
-- The AI did not have a clear mandate to always take direct action, resulting in a poor user experience.
-
-### How to prevent this as a prompt engineer:
-- **Mandate direct AI action:** Always specify that the AI must perform all code changes, debugging, and configuration itself.
-- **Disallow user-tasking:** Make it clear in the prompt that the user should never be tasked with manual technical steps.
-- **Require root cause analysis:** Instruct the AI to analyze logs and errors, and to fix the underlying cause, not just surface symptoms.
-- **Demand iterative, autonomous debugging:** The AI should keep iterating and debugging until the problem is fully resolved, without waiting for user intervention.
-- **Enforce clear success criteria:** Define what "done" means (e.g., real-time sync, avatars work, no user-tasking) and require the AI to verify all criteria are met.
-
----
-
-## Summary of Failed Attempts
-
-- **Blob URLs for Avatars/Images:** Blob URLs are only valid in the session that created them. Sharing these across clients causes errors and broken avatars/messages.
-- **Local-Only State Updates:** Updating messages/users locally (not from backend events) leads to isolated chatrooms per browser.
-- **Mixing Local and Remote State:** Combining local and backend-driven state caused race conditions, duplicate messages, and broken UI.
-- **Optimistic UI Updates:** Adding messages locally before backend confirmation led to out-of-sync state and confusion.
-- **Removing Avatar/Image Support:** Attempts to "fix" Blob URL errors by removing avatars/images broke the user experience.
-- **Switching to Static Avatars:** Removing custom avatar upload was not desired and broke expected functionality.
-
----
-
 ## Rock-Solid Standard Plan
 
 ### 1. Avatar Handling
@@ -117,3 +90,66 @@ sequenceDiagram
 **The AI assistant must never require the user to perform manual code changes, debugging, or configuration. All code, fixes, and debugging must be performed by the AI directly. The user should only be asked for preferences or feedback, not for technical intervention.**
 
 ---
+## Future Development & Unique Enhancement Goals
+
+1. **Rich Media Support**
+   - Image, video, and file sharing in chat
+   - Inline previews for links, YouTube, and social media
+
+2. **Advanced User Profiles**
+   - Editable bios, status messages, and profile backgrounds
+   - Custom emoji/avatar packs
+
+3. **Reactions & Emoji**
+   - React to messages with emojis or stickers
+   - Emoji autocomplete and trending emoji bar
+
+4. **Threaded & Private Conversations**
+   - Threaded replies for message organization
+   - Direct messages and group DMs
+
+5. **Moderation & Safety**
+   - Admin/moderator roles with kick/ban/mute controls
+   - Profanity filter and spam detection
+   - Report message/user functionality
+
+6. **Notifications & Presence**
+   - Desktop and push notifications
+   - Online/offline/typing indicators
+   - @mentions and keyword alerts
+
+7. **Customization & Themes**
+   - Light/dark mode and custom color themes
+   - User-customizable chat backgrounds
+
+8. **Accessibility**
+   - Full keyboard navigation and screen reader support
+   - Adjustable font sizes and high-contrast mode
+
+9. **Integrations**
+   - Webhooks for bots and automation
+   - Integration with calendar, polls, or collaborative docs
+
+10. **Gamification**
+    - Achievements, badges, and leaderboards
+    - Leveling system for active users
+
+11. **Unique/Experimental Features**
+    - AI-powered message summarization or translation
+    - Voice/video chat rooms
+    - Anonymous/ephemeral chat modes
+    - Collaborative drawing or whiteboard
+
+12. **Performance & Scalability**
+    - Persistent storage (database integration)
+    - Horizontal scaling for large user bases
+    - Mobile app version
+
+13. **Analytics & Insights**
+    - Usage stats for admins
+    - Message search and filtering
+
+14. **Open API**
+    - Public API for third-party integrations and bots
+
+*This list is non-exhaustive and intended to inspire ongoing innovation and improvement. Prioritize based on user feedback and technical feasibility.*
