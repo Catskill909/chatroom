@@ -1,5 +1,17 @@
 # Local Development Setup
 
+🚨 **CRITICAL: .env FILE REQUIRED FOR LOCAL DEVELOPMENT**
+
+- Before running anything, create a `.env` file in the project root.
+- Add this line to your `.env` file:
+  
+  ```
+  VITE_SOCKET_URL=http://localhost:3000
+  ```
+- If `.env` is missing or blank, the frontend will NOT connect to the backend. You will see the interface but no users or messages.
+- If you ever see the UI but no chat/users, check your `.env` first!
+
+
 Follow these steps to run the chat app locally with both frontend and backend:
 
 ---

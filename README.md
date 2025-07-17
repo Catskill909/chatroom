@@ -27,6 +27,21 @@ The chat supports image sharing with the following features:
 - **Backend:** Node.js server (see `server.js`) manages users, messages, and avatar data in memory
 - **Communication:** WebSockets for real-time updates
 
+## 🚨 IMPORTANT: Local Environment Setup
+
+**You MUST create a `.env` file in the project root before running the app locally.**
+
+- The `.env` file is NOT tracked by git and must be created by each developer.
+- Add this line to your `.env` file:
+  
+  ```
+  VITE_SOCKET_URL=http://localhost:3000
+  ```
+- If `.env` is missing or blank, the frontend will NOT connect to the backend. You will see the interface but no users or messages.
+- If you ever see the UI but no chat/users, check your `.env` first!
+
+---
+
 ## Setup & Usage
 
 ### Prerequisites
