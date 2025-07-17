@@ -37,14 +37,14 @@ export const ChatMessage = ({ message, currentUser }: ChatMessageProps) => {
       {/* Message Content */}
       <div className="min-w-0">
         <div className="flex items-center space-x-2 mb-1">
-          <span className="font-medium text-foreground text-sm">
+          <span className="font-medium text-sm text-white">
             {message.username}
           </span>
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-white/70">
             {formatDistanceToNow(message.timestamp, { addSuffix: true })}
           </span>
         </div>
-        
+
         {message.image && (
           <div className="mb-2">
             <img
@@ -56,9 +56,11 @@ export const ChatMessage = ({ message, currentUser }: ChatMessageProps) => {
             />
           </div>
         )}
-        
+
         {message.content && (
-          <p className="text-foreground text-sm leading-relaxed break-words">
+          <p
+            className="text-sm leading-relaxed break-words text-white"
+          >
             {message.content}
           </p>
         )}

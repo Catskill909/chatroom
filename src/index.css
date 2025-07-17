@@ -38,7 +38,7 @@ All colors MUST be HSL.
     --ring: 220 9% 75%;
 
     /* Chat-specific colors */
-    --chat-bubble-own: 220 13% 22%;
+    --chat-bubble-own: 220 13% 28%;
     --chat-bubble-other: 220 13% 18%;
     --chat-hover: 220 13% 24%;
     --subtle-accent: 200 50% 65%;
