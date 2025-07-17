@@ -16,6 +16,10 @@ import { ChatMessage, type Message } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { UsersList, type ChatUser } from "./UsersList";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { Menu } from "lucide-react";
 
 export const Chatroom = () => {
   const [showUsernameModal, setShowUsernameModal] = useState(true);
@@ -25,6 +29,8 @@ export const Chatroom = () => {
   const [users, setUsers] = useState<ChatUser[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const isMobile = useIsMobile();
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Store user info in refs for reconnect logic
   const userRef = useRef<{ username: string; avatar: string | null }>({ username: "", avatar: null });
@@ -137,9 +143,9 @@ export const Chatroom = () => {
 
   const handleSendMessage = async (content: string, image?: File) => {
     if (!currentUser) return;
-    
+
     console.log("[chat] handleSendMessage called", { hasContent: !!content.trim(), hasImage: !!image });
-    
+
     // For text-only messages, send immediately
     if (!image) {
       const textMessage: Message = {
@@ -148,20 +154,20 @@ export const Chatroom = () => {
         content: content,
         timestamp: new Date(),
         avatar: userAvatar || undefined,
-              };
-      
+      };
+
       socket.emit("message", textMessage);
       return;
     }
-    
+
     // For messages with images - use the same method as avatar uploads
     try {
       console.log("[chat] Processing image for chat", { fileName: image.name, fileSize: image.size });
-      
+
       // Convert and resize image using the same function as avatars
       const base64 = await resizeImage(image, 800);
       console.log("[chat] Image converted to base64, length:", base64.length);
-      
+
       // Create and send message with image
       const imageMessage: Message = {
         id: Date.now().toString(),
@@ -170,14 +176,14 @@ export const Chatroom = () => {
         timestamp: new Date(),
         avatar: userAvatar || undefined,
         image: base64,
-              };
-      
+      };
+
       socket.emit("message", imageMessage);
     } catch (error) {
       console.error("[chat] Error processing image:", error);
-      toast({ 
-        title: "Error", 
-        description: "Failed to process image." 
+      toast({
+        title: "Error",
+        description: "Failed to process image."
       });
     }
   };
@@ -189,25 +195,57 @@ export const Chatroom = () => {
 
   return (
     <div className="h-screen bg-background flex">
-      {/* Users List */}
-      <UsersList users={users} currentUser={currentUser} />
+      {/* Users List - Desktop */}
+      {!isMobile && (
+        <UsersList users={users} currentUser={currentUser} />
+      )}
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <div className="bg-card border-b border-border p-4 flex items-center space-x-4">
-          <img
-            src="/oss-logo.png"
-            alt="OSS Logo"
-            className="h-8 w-auto"
-          />
-          <div>
-            <p className="text-sm text-muted-foreground">
-              Welcome, {currentUser}! Welcome to the OSS chat room.
-            </p>
+        <div className={`bg-card border-b border-border flex flex-col gap-2 sm:flex-row sm:items-center sm:space-x-4 ${isMobile ? "py-2" : "p-4"}`}>
+          <div className="flex flex-row items-center justify-between w-full relative" style={{minHeight: '3rem'}}>
+  {/* Hamburger button (absolute left) */}
+            {/* Mobile: Hamburger Drawer Trigger */}
+            {isMobile && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute left-2 top-2 bg-transparent text-black h-8 w-8 flex items-center justify-center p-0 m-0 shadow-none border-none rounded-none hover:bg-transparent active:bg-transparent focus:bg-transparent"
+                onClick={() => setDrawerOpen(true)}
+                aria-label="Open menu"
+              >
+                <img
+                  src="/hamburger.png"
+                  alt="Menu"
+                  className="w-full h-full object-contain p-0 m-0 border-none rounded-none shadow-none"
+                  draggable={false}
+                />
+              </Button>
+            )}
+            <div className="flex-1 flex justify-center items-center">
+  <img
+    src="/oss-logo.png"
+    alt="OSS Logo"
+    className={`${isMobile ? "h-8" : "h-12"} w-auto`}
+  />
+</div>
+            {/* Invisible placeholder for perfect centering */}
+            {isMobile && <div className="h-8 w-8" style={{ visibility: 'hidden' }} />}
           </div>
+          <p className="text-sm text-muted-foreground mt-2 sm:mt-0 text-center">
+            Welcome, {currentUser}! Welcome to the OSS chat room.
+          </p>
         </div>
 
+        {/* Mobile: User List Drawer */}
+        {isMobile && (
+          <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
+            <SheetContent side="left" className="p-0 w-64 max-w-full">
+              <UsersList users={users} currentUser={currentUser} />
+            </SheetContent>
+          </Sheet>
+        )}
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
