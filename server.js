@@ -1,5 +1,7 @@
 import express from 'express';
 import http from 'http';
+import https from 'https';
+import fs from 'fs';
 import { Server } from 'socket.io';
 
 const app = express();
@@ -11,7 +13,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 app.use(express.static(path.join(__dirname, 'dist')));
 
-const server = http.createServer(app);
+let server;
+if (process.env.SSL_KEY_PATH && process.env.SSL_CERT_PATH) {
+    const key = fs.readFileSync(process.env.SSL_KEY_PATH);
+    const cert = fs.readFileSync(process.env.SSL_CERT_PATH);
+    server = https.createServer({ key, cert }, app);
+    console.log('HTTPS server enabled');
+} else {
+    server = http.createServer(app);
+    console.log('HTTP server enabled');
+}
 const io = new Server(server, {
     cors: { origin: '*' }
 });
@@ -50,7 +61,7 @@ io.on('connection', (socket) => {
 
     socket.on('message', (msg) => {
         console.log(`[recv] message received from ${socket.id}`);
-        
+
         // Check if message contains an image and log accordingly
         if (msg.image) {
             console.log(`[recv] message with image, image data length: ${msg.image.length}`);
@@ -58,7 +69,7 @@ io.on('connection', (socket) => {
         } else {
             console.log(`[recv] text-only message: "${msg.content}"`);
         }
-        
+
         messages.push(msg);
         io.emit('message', msg);
         console.log(`[emit] broadcasted message to all clients`);

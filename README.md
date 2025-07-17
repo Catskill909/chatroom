@@ -76,3 +76,28 @@ You can deploy this app to any Node.js-compatible host. For production, consider
 ## Further Reading
 
 See [`plan.md`](plan.md:1) for a detailed architecture plan, implementation mandate, and troubleshooting notes.
+
+## HTTPS & WebSocket Deployment Notes
+
+### Local Development
+- By default, the backend runs over HTTP.
+- The frontend connects to the backend using the default Socket.IO URL (`'/'`), which works for same-origin setups.
+
+### Production Deployment (HTTPS)
+- To enable HTTPS, set the following environment variables before starting the server:
+  - `SSL_KEY_PATH` — Path to your SSL private key file (e.g., `/etc/letsencrypt/live/yourdomain.com/privkey.pem`)
+  - `SSL_CERT_PATH` — Path to your SSL certificate file (e.g., `/etc/letsencrypt/live/yourdomain.com/fullchain.pem`)
+- The server will automatically use HTTPS if both variables are set.
+- If deploying frontend and backend on different origins, set `VITE_SOCKET_URL` in your frontend environment to the full wss:// or https:// URL of your backend (e.g., `wss://chat.example.com`).
+
+### Generating Self-Signed Certificates (for testing)
+```sh
+openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes -subj "/CN=localhost"
+```
+Then set:
+- `SSL_KEY_PATH=./key.pem`
+- `SSL_CERT_PATH=./cert.pem`
+
+### Troubleshooting
+- Browsers will block insecure WebSocket (ws://) connections from HTTPS pages. Always use HTTPS/WSS in production.
+- Ensure your certificates are valid and readable by the server process.
