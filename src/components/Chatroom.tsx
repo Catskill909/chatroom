@@ -36,9 +36,10 @@ export const Chatroom = () => {
   const userRef = useRef<{ username: string; avatar: string | null }>({ username: "", avatar: null });
 
   useEffect(() => {
-    socket.on("users", (userList) => {
-      console.log("[socket] received users", userList);
-      setUsers(userList);
+    socket.on("users", (usersList) => {
+      console.log("[socket] received users", usersList);
+      console.log("[debug] users count:", usersList.length);
+      setUsers(usersList);
     });
     socket.on("history", (history) => {
       console.log("[socket] received history", history);
@@ -79,45 +80,8 @@ export const Chatroom = () => {
     };
   }, []);
 
-  // Robust scroll to bottom function
-  const scrollToBottom = () => {
-    const messagesContainer = messagesContainerRef.current;
-    if (messagesContainer) {
-      // Force scroll to absolute bottom
-      messagesContainer.scrollTop = messagesContainer.scrollHeight;
-      
-      // Double-check and force scroll again if needed
-      setTimeout(() => {
-        if (messagesContainer.scrollTop < messagesContainer.scrollHeight - messagesContainer.clientHeight - 10) {
-          messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }
-      }, 50);
-    }
-  };
-
-  // Scroll to bottom when messages change
-  useEffect(() => {
-    // Multiple attempts to ensure scrolling works
-    const scrollAttempts = () => {
-      scrollToBottom();
-      
-      // Additional attempts with delays to handle async rendering
-      setTimeout(scrollToBottom, 10);
-      setTimeout(scrollToBottom, 100);
-      setTimeout(scrollToBottom, 250);
-    };
-    
-    // Use requestAnimationFrame for immediate attempt
-    requestAnimationFrame(scrollAttempts);
-  }, [messages]);
-
-  // Also scroll to bottom when component first mounts
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      scrollToBottom();
-    }, 500);
-    return () => clearTimeout(timer);
-  }, []);
+  // Note: Chat auto-scroll is now handled by CSS flex-direction: column-reverse
+  // No JavaScript scrolling needed!
 
   const handleUsernameSubmit = (username: string, avatarBase64?: string) => {
     setCurrentUser(username);
@@ -233,7 +197,9 @@ export const Chatroom = () => {
     <div className="h-screen bg-background flex">
       {/* Users List - Desktop */}
       {!isMobile && (
-        <UsersList users={users} currentUser={currentUser} />
+        <div className="flex-shrink-0">
+          <UsersList users={users} currentUser={currentUser} />
+        </div>
       )}
 
       {/* Main Chat Area */}
@@ -285,6 +251,13 @@ export const Chatroom = () => {
           </div>
         </div>
       </div>
+
+      {/* Mobile Drawer */}
+      <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
+        <SheetContent side="left" className="w-80 p-0">
+          <UsersList users={users} currentUser={currentUser} />
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };
