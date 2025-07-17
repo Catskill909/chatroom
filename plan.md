@@ -100,6 +100,9 @@ Create a robust, classic real-time chatroom where:
 
 **The AI assistant must never require the user to perform manual code changes, debugging, or configuration. All code, fixes, and debugging must be performed by the AI directly. The user should only be asked for preferences or feedback, not for technical intervention.**
 
+
+## Future Development Ideas
+
 1. **Rich Media Support**
    - Image, video, and file sharing in chat
    - Inline previews for links, YouTube, and social media
