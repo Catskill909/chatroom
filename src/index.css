@@ -109,5 +109,15 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    min-height: 100svh;
+    min-height: 100dvh;
+    min-height: 100vh;
+    max-height: 100svh;
+    max-height: 100dvh;
+    max-height: 100vh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    touch-action: manipulation;
   }
 }
