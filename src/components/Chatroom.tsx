@@ -27,7 +27,7 @@ export const Chatroom = () => {
   const [userAvatar, setUserAvatar] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [users, setUsers] = useState<ChatUser[]>([]);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -79,9 +79,45 @@ export const Chatroom = () => {
     };
   }, []);
 
+  // Robust scroll to bottom function
+  const scrollToBottom = () => {
+    const messagesContainer = messagesContainerRef.current;
+    if (messagesContainer) {
+      // Force scroll to absolute bottom
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      
+      // Double-check and force scroll again if needed
+      setTimeout(() => {
+        if (messagesContainer.scrollTop < messagesContainer.scrollHeight - messagesContainer.clientHeight - 10) {
+          messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+      }, 50);
+    }
+  };
+
+  // Scroll to bottom when messages change
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Multiple attempts to ensure scrolling works
+    const scrollAttempts = () => {
+      scrollToBottom();
+      
+      // Additional attempts with delays to handle async rendering
+      setTimeout(scrollToBottom, 10);
+      setTimeout(scrollToBottom, 100);
+      setTimeout(scrollToBottom, 250);
+    };
+    
+    // Use requestAnimationFrame for immediate attempt
+    requestAnimationFrame(scrollAttempts);
   }, [messages]);
+
+  // Also scroll to bottom when component first mounts
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      scrollToBottom();
+    }, 500);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleUsernameSubmit = (username: string, avatarBase64?: string) => {
     setCurrentUser(username);
@@ -205,7 +241,6 @@ export const Chatroom = () => {
         {/* Header */}
         <div className={`bg-card border-b border-border flex flex-col gap-2 sm:flex-row sm:items-center sm:space-x-4 ${isMobile ? "py-2" : "p-4"}`}>
           <div className="flex flex-row items-center justify-between w-full relative" style={{minHeight: '3rem'}}>
-  {/* Hamburger button (absolute left) */}
             {/* Mobile: Hamburger Drawer Trigger */}
             {isMobile && (
               <Button
@@ -224,39 +259,31 @@ export const Chatroom = () => {
               </Button>
             )}
             <div className="flex-1 flex justify-center items-center">
-  <img
-    src="/oss-logo.png"
-    alt="OSS Logo"
-    className={`${isMobile ? "h-8" : "h-12"} w-auto`}
-  />
-</div>
+              <img
+                src="/oss-logo.png"
+                alt="OSS Logo"
+                className={`${isMobile ? "h-8" : "h-12"} w-auto`}
+              />
+            </div>
             {/* Invisible placeholder for perfect centering */}
             {isMobile && <div className="h-8 w-8" style={{ visibility: 'hidden' }} />}
           </div>
-          <p className="text-sm text-muted-foreground mt-2 sm:mt-0 text-center">
-            Welcome, {currentUser}! Welcome to the OSS chat room.
-          </p>
         </div>
 
-        {/* Mobile: User List Drawer */}
-        {isMobile && (
-          <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-            <SheetContent side="left" className="p-0 w-64 max-w-full">
-              <UsersList users={users} currentUser={currentUser} />
-            </SheetContent>
-          </Sheet>
-        )}
-
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {messages.map((message) => (
-            <ChatMessage key={message.id} message={message} currentUser={currentUser} />
-          ))}
-          <div ref={messagesEndRef} />
+        {/* Messages Container */}
+        <div className="flex-1 overflow-hidden flex flex-col">
+          {/* Messages List */}
+          <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 flex flex-col-reverse gap-4">
+            {messages.slice().reverse().map((message) => (
+              <ChatMessage key={message.id} message={message} currentUser={currentUser} />
+            ))}
+          </div>
+          
+          {/* Input */}
+          <div className="border-t border-border p-4">
+            <ChatInput onSendMessage={handleSendMessage} />
+          </div>
         </div>
-
-        {/* Input */}
-        <ChatInput onSendMessage={handleSendMessage} />
       </div>
     </div>
   );
