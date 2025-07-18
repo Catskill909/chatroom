@@ -1,9 +1,6 @@
-/* eslint-disable */
-/* stylelint-disable */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-/* stylelint-enable */
 
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
@@ -112,9 +109,6 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
-    height: 100vh;
-    min-height: 100vh;
-    max-height: 100vh;
     overflow: hidden;
     overscroll-behavior-y: contain;
     touch-action: manipulation;
