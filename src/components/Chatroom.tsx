@@ -194,7 +194,7 @@ export const Chatroom = () => {
   }
 
   return (
-    <div className="h-screen bg-background flex">
+        <div className="h-dvh bg-background flex">
       {/* Users List - Desktop */}
       {!isMobile && (
         <div className="flex-shrink-0">
