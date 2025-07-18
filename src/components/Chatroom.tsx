@@ -239,8 +239,8 @@ export const Chatroom = () => {
         {/* Messages Container */}
         <div className="flex-1 overflow-hidden flex flex-col">
           {/* Messages List */}
-          <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 flex flex-col justify-end">
-            {messages.map((message) => (
+          <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 gap-4 flex flex-col-reverse">
+            {messages.slice().reverse().map((message) => (
               <ChatMessage key={message.id} message={message} currentUser={currentUser} />
             ))}
           </div>
