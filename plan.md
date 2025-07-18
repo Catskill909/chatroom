@@ -103,6 +103,10 @@ Create a robust, classic real-time chatroom where:
 
 ## Future Development Ideas
 
+### Next Up
+- [ ] **Message Expiration**: Messages automatically expire after a configurable time period
+- [ ] **Clickable Links**: URLs in messages are automatically converted to clickable links that open in a new tab
+
 1. **Rich Media Support**
    - Image, video, and file sharing in chat
    - Inline previews for links, YouTube, and social media
