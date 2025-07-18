@@ -18,7 +18,8 @@ interface ChatMessageProps {
 export const ChatMessage = ({ message, currentUser }: ChatMessageProps) => {
   const isOwn = message.username === currentUser;
   return (
-    <div className={`flex space-x-3 p-3 rounded-lg transition-colors hover:bg-chat-hover max-w-[70%] ${isOwn ? 'ml-auto bg-chat-bubble-own' : 'bg-chat-bubble-other'}`}>
+    <div className={`w-[70%] ${isOwn ? 'ml-auto' : ''}`}>
+      <div className={`flex space-x-3 p-3 rounded-lg transition-colors hover:bg-chat-hover ${isOwn ? 'bg-chat-bubble-own' : 'bg-chat-bubble-other'}`}>
       {/* Avatar */}
       <div className="flex-shrink-0">
         <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center border border-border overflow-hidden">
@@ -64,6 +65,7 @@ export const ChatMessage = ({ message, currentUser }: ChatMessageProps) => {
             {message.content}
           </p>
         )}
+      </div>
       </div>
     </div>
   );
