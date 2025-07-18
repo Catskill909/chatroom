@@ -1,0 +1,22 @@
+.rhap_progress-bar-show-download {
+  background: #2d3748 !important;
+}
+.rhap_progress-filled {
+  background: #4299e1 !important;
+}
+.rhap_progress-indicator {
+  background: #fff !important;
+  border: 2px solid #4299e1 !important;
+}
+.rhap_time {
+  color: #e2e8f0 !important;
+}
+.rhap_container {
+  background: transparent !important;
+}
+.rhap_download-progress {
+  background: #718096 !important;
+}
+.rhap_progress-section {
+  background: transparent !important;
+}

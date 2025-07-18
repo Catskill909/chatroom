@@ -3,14 +3,78 @@ import http from 'http';
 import https from 'https';
 import fs from 'fs';
 import { Server } from 'socket.io';
+import multer from 'multer';
+import path from 'path';
+import cors from 'cors';
 
 const app = express();
 
-// Serve frontend static files from /dist
-import path from 'path';
+// Enable CORS for all HTTP requests
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// Initialize __dirname for ES modules
 import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// --- AUDIO & COVER UPLOAD SETUP ---
+const AUDIO_UPLOAD_DIR = path.join(__dirname, 'uploads', 'audio');
+const COVER_UPLOAD_DIR = path.join(__dirname, 'uploads', 'cover');
+if (!fs.existsSync(AUDIO_UPLOAD_DIR)) {
+    fs.mkdirSync(AUDIO_UPLOAD_DIR, { recursive: true });
+}
+if (!fs.existsSync(COVER_UPLOAD_DIR)) {
+    fs.mkdirSync(COVER_UPLOAD_DIR, { recursive: true });
+}
+const audioStorage = multer.diskStorage({
+    destination: AUDIO_UPLOAD_DIR,
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const ext = path.extname(file.originalname);
+        cb(null, file.fieldname + '-' + uniqueSuffix + ext);
+    }
+});
+const coverStorage = multer.diskStorage({
+    destination: COVER_UPLOAD_DIR,
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const ext = path.extname(file.originalname);
+        cb(null, file.fieldname + '-' + uniqueSuffix + ext);
+    }
+});
+const audioUpload = multer({ storage: audioStorage });
+const coverUpload = multer({ storage: coverStorage });
+
+// Audio upload endpoint
+app.post('/upload/audio', audioUpload.single('audio'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+    }
+    // Return the public URL for the uploaded file
+    const fileUrl = `/uploads/audio/${req.file.filename}`;
+    res.json({ url: fileUrl });
+});
+
+// Cover art upload endpoint
+app.post('/upload/cover', coverUpload.single('cover'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: 'No cover uploaded' });
+    }
+    const fileUrl = `/uploads/cover/${req.file.filename}`;
+    res.json({ url: fileUrl });
+});
+
+// Serve uploaded audio files as static
+app.use('/uploads/audio', express.static(AUDIO_UPLOAD_DIR));
+// Serve uploaded cover images as static
+app.use('/uploads/cover', express.static(COVER_UPLOAD_DIR));
+// --- END AUDIO & COVER UPLOAD SETUP ---
+
+// Serve frontend static files from /dist
 app.use(express.static(path.join(__dirname, 'dist')));
 
 let server;

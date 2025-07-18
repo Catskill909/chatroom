@@ -10,11 +10,31 @@ interface ChatInputProps {
   onSendMessage: (content: string, image?: File) => void;
 }
 
-export const ChatInput = ({ onSendMessage }: ChatInputProps) => {
+import { parseBlob } from "music-metadata-browser";
+import AudioPlayer from "react-h5-audio-player";
+import "react-h5-audio-player/lib/styles.css";
+
+export type ChatInputMessage = {
+  content: string;
+  imageFile?: File | null;
+  audioFile?: File | null;
+  audioPreviewUrl?: string | null;
+  audioMeta?: { title?: string; artist?: string; album?: string; coverUrl?: string } | null;
+};
+
+export const ChatInput = ({ onSendMessage }: { onSendMessage: (msg: ChatInputMessage) => void }) => {
   const [message, setMessage] = useState("");
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+  // --- AUDIO FEATURE STATE ---
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null);
+  const [audioMeta, setAudioMeta] = useState<{ title?: string; artist?: string; album?: string; coverUrl?: string } | null>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
+  // --------------------------
+
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -38,14 +58,97 @@ export const ChatInput = ({ onSendMessage }: ChatInputProps) => {
     }
   };
 
-  const handleSend = () => {
-    if (message.trim() || selectedImage) {
-      onSendMessage(message, selectedImage || undefined);
+  const handleSend = async () => {
+    // If audioFile present and audioMeta has a cover art buffer, upload cover art
+    let coverUrl = null;
+    if (audioFile && audioMeta && audioMeta.coverUrl && audioMeta.coverUrl.startsWith('blob:')) {
+      try {
+        console.log('[DEBUG] Preparing to upload cover art:', audioMeta.coverUrl);
+        // Convert blob URL to Blob
+        const blob = await fetch(audioMeta.coverUrl).then(r => r.blob());
+        const backendUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
+        const formData = new FormData();
+        formData.append('cover', blob, 'cover.png');
+        const uploadRes = await fetch(`${backendUrl}/upload/cover`, {
+          method: 'POST',
+          body: formData
+        });
+        if (uploadRes.ok) {
+          const data = await uploadRes.json();
+          coverUrl = data.url;
+          console.log('[DEBUG] Cover art upload successful, received URL:', coverUrl);
+        } else {
+          const errText = await uploadRes.text();
+          console.warn('[DEBUG] Cover art upload failed, response:', errText);
+          coverUrl = '/spalsh_image.png';
+          alert('Cover art upload failed. Default image will be used.');
+        }
+      } catch (err) {
+        console.error('[DEBUG] Cover art upload failed, using fallback:', err);
+        coverUrl = '/spalsh_image.png';
+        alert('Cover art upload failed. Default image will be used.');
+      }
+    }
+    // If no cover or upload failed, fallback
+    if (!coverUrl) {
+      coverUrl = '/spalsh_image.png';
+      console.warn('[DEBUG] No cover art URL available, using fallback.');
+    }
+    let audioUrl = audioPreviewUrl;
+    if (audioFile) {
+      // Upload audio file to backend
+      console.log('[DEBUG] Starting audio upload:', audioFile.name, audioFile.size, audioFile.type);
+      const formData = new FormData();
+      formData.append('audio', audioFile);
+      console.log('[DEBUG] FormData created, uploading to /upload/audio');
+      try {
+        const backendUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
+        const res = await fetch(`${backendUrl}/upload/audio`, {
+          method: 'POST',
+          body: formData,
+        });
+        console.log('[DEBUG] Upload response status:', res.status, res.statusText);
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error('[DEBUG] Upload failed with response:', errorText);
+          throw new Error(`Audio upload failed: ${res.status} ${res.statusText}`);
+        }
+        const data = await res.json();
+        console.log('[DEBUG] Upload successful, received URL:', data.url);
+        audioUrl = data.url;
+      } catch (err) {
+        console.error('[DEBUG] Upload error:', err);
+        alert('Audio upload failed. Please try again.');
+        return;
+      }
+    }
+    if (message.trim() || selectedImage || audioFile) {
+      // Always use backend-served coverUrl, never Blob
+      let safeCoverUrl = coverUrl;
+      if (safeCoverUrl && safeCoverUrl.startsWith('blob:')) {
+        console.warn('[DEBUG] Refusing to send Blob URL as cover art, using fallback.');
+        safeCoverUrl = '/spalsh_image.png';
+      }
+      const msgObj = {
+        content: message,
+        imageFile: selectedImage,
+        audioFile: null, // Do not send the file itself
+        audioPreviewUrl: audioUrl, // Use the returned URL
+        audioMeta: audioMeta ? { ...audioMeta, coverUrl: safeCoverUrl } : undefined,
+      };
+      console.log('[DEBUG] Sending message object:', msgObj);
+      onSendMessage(msgObj);
       setMessage("");
       setSelectedImage(null);
       setImagePreview(null);
+      setAudioFile(null);
+      setAudioPreviewUrl(null);
+      setAudioMeta(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
+      }
+      if (audioInputRef.current) {
+        audioInputRef.current.value = "";
       }
     }
   };
@@ -79,6 +182,31 @@ export const ChatInput = ({ onSendMessage }: ChatInputProps) => {
             variant="secondary"
             size="sm"
             onClick={removeImage}
+            className="absolute -top-2 -right-2 w-6 h-6 p-0 rounded-full bg-secondary border border-border hover:bg-accent"
+          >
+            <X className="w-3 h-3" />
+          </Button>
+        </div>
+      )}
+
+      {/* Audio File Selected Indicator */}
+      {audioFile && (
+        <div className="mb-3 relative inline-block bg-muted rounded-lg p-3">
+          <div className="flex items-center space-x-2">
+            <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 19V6a3 3 0 116 0v13m-9-4h12" />
+            </svg>
+            <span className="text-sm text-white">{audioFile.name}</span>
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              setAudioFile(null);
+              setAudioPreviewUrl(null);
+              setAudioMeta(null);
+              if (audioInputRef.current) audioInputRef.current.value = "";
+            }}
             className="absolute -top-2 -right-2 w-6 h-6 p-0 rounded-full bg-secondary border border-border hover:bg-accent"
           >
             <X className="w-3 h-3" />
@@ -170,12 +298,77 @@ export const ChatInput = ({ onSendMessage }: ChatInputProps) => {
             >
               <Image className="w-4 h-4" />
             </Button>
+            {/* Audio Upload Button */}
+            <input
+              ref={audioInputRef}
+              type="file"
+              accept="audio/*"
+              onChange={async (event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                if (!file.type.startsWith("audio/")) {
+                  alert("Please select an audio file");
+                  return;
+                }
+
+                setAudioFile(file);
+                const url = URL.createObjectURL(file);
+                setAudioPreviewUrl(url);
+
+                // Extract metadata
+                try {
+                  const metadata = await parseBlob(file);
+                  let coverUrl: string | undefined;
+                  if (metadata.common.picture && metadata.common.picture.length > 0) {
+                    const pic = metadata.common.picture[0];
+                    try {
+                      coverUrl = URL.createObjectURL(new Blob([pic.data], { type: pic.format }));
+                      console.log('[DEBUG] Cover art Blob URL:', coverUrl, pic);
+                    } catch (coverErr) {
+                      console.error('[DEBUG] Failed to create cover art Blob URL:', coverErr, pic);
+                      coverUrl = undefined;
+                    }
+                  } else {
+                    console.warn('[DEBUG] No embedded cover art found in audio metadata:', metadata);
+                  }
+                  const metaObj = {
+                    title: metadata.common.title,
+                    artist: metadata.common.artist,
+                    album: metadata.common.album,
+                    coverUrl: coverUrl,
+                  };
+                  console.log('[DEBUG] Extracted audio metadata:', metaObj, metadata);
+                  setAudioMeta(metaObj);
+                  if (!coverUrl) {
+                    alert('No embedded cover art found in this audio file. Default image will be used.');
+                  }
+                } catch (err) {
+                  console.error('[DEBUG] Failed to extract audio metadata:', err);
+                  setAudioMeta(null);
+                  alert('Failed to extract audio metadata. Default image will be used.');
+                }
+              }}
+              className="hidden"
+              id="audio-upload"
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => document.getElementById('audio-upload')?.click()}
+              className="p-2 h-8 w-8 hover:bg-accent text-muted-foreground hover:text-foreground"
+              aria-label="Upload audio"
+              type="button"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 19V6a3 3 0 116 0v13m-9-4h12" />
+              </svg>
+            </Button>
           </div>
         </div>
 
         <Button
           onClick={handleSend}
-          disabled={!message.trim() && !selectedImage}
+          disabled={!message.trim() && !selectedImage && !audioFile}
           className="bg-primary text-primary-foreground hover:bg-primary/90"
         >
           <Send className="w-4 h-4" />

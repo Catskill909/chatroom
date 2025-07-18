@@ -1,3 +1,4 @@
+import type { ChatInputMessage } from "./ChatInput";
 // Socket.IO client singleton (outside component)
 import { io } from "socket.io-client";
 // Use environment variable for Socket.IO URL if set, otherwise default to relative URL (same origin)
@@ -141,63 +142,69 @@ export const Chatroom = () => {
     });
   };
 
-  const handleSendMessage = async (content: string, image?: File) => {
+  const handleSendMessage = async (msg: ChatInputMessage) => {
     if (!currentUser) return;
 
-    console.log("[chat] handleSendMessage called", { hasContent: !!content.trim(), hasImage: !!image });
-
-    // For text-only messages, send immediately
-    if (!image) {
-      const textMessage: Message = {
-        id: Date.now().toString(),
+    // AUDIO MESSAGE
+    if (msg.audioPreviewUrl) {
+      // Use Blob URL directly instead of converting to base64
+      const audioMessage: Message = {
+        id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
         username: currentUser,
-        content: content,
+        content: msg.content,
         timestamp: new Date(),
         avatar: userAvatar || undefined,
+        audio: msg.audioPreviewUrl, // Use the existing Blob URL
+        audioMeta: msg.audioMeta || undefined,
       };
-
-      socket.emit("message", textMessage);
+      console.log('[DEBUG] Emitting audio message:', audioMessage);
+      socket.emit("message", audioMessage);
       return;
     }
 
-    // For messages with images
-    try {
-      console.log("[chat] Processing image for chat", { fileName: image.name, fileSize: image.size });
-
-      let base64: string;
-
-      if (image.type === "image/gif") {
-        // For GIFs, do NOT resize, just read as DataURL
-        base64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(image);
+    // IMAGE MESSAGE
+    if (msg.imageFile) {
+      try {
+        let base64: string;
+        if (msg.imageFile.type === "image/gif") {
+          base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(msg.imageFile as File);
+          });
+        } else {
+          base64 = await resizeImage(msg.imageFile, 800);
+        }
+        const imageMessage: Message = {
+          id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
+          username: currentUser,
+          content: msg.content,
+          timestamp: new Date(),
+          avatar: userAvatar || undefined,
+          image: base64,
+        };
+        socket.emit("message", imageMessage);
+      } catch (error) {
+        console.error("[chat] Error processing image:", error);
+        toast({
+          title: "Error",
+          description: "Failed to process image."
         });
-        console.log("[chat] GIF image sent as base64, length:", base64.length);
-      } else {
-        // For other images, resize as before
-        base64 = await resizeImage(image, 800);
-        console.log("[chat] Image converted to base64, length:", base64.length);
       }
+      return;
+    }
 
-      // Create and send message with image
-      const imageMessage: Message = {
-        id: Date.now().toString(),
+    // TEXT ONLY
+    if (msg.content.trim()) {
+      const textMessage: Message = {
+        id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
         username: currentUser,
-        content: content,
+        content: msg.content,
         timestamp: new Date(),
         avatar: userAvatar || undefined,
-        image: base64,
       };
-
-      socket.emit("message", imageMessage);
-    } catch (error) {
-      console.error("[chat] Error processing image:", error);
-      toast({
-        title: "Error",
-        description: "Failed to process image."
-      });
+      socket.emit("message", textMessage);
     }
   };
 
