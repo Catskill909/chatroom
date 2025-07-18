@@ -194,7 +194,7 @@ export const Chatroom = () => {
   }
 
   return (
-        <div className="h-dvh bg-background flex">
+        <div className="oss-chatroom-viewport bg-background flex" style={{ height: 'var(--oss-app-height)' }}>
       {/* Users List - Desktop */}
       {!isMobile && (
         <div className="flex-shrink-0">
