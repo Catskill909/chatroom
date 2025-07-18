@@ -160,13 +160,26 @@ export const Chatroom = () => {
       return;
     }
 
-    // For messages with images - use the same method as avatar uploads
+    // For messages with images
     try {
       console.log("[chat] Processing image for chat", { fileName: image.name, fileSize: image.size });
 
-      // Convert and resize image using the same function as avatars
-      const base64 = await resizeImage(image, 800);
-      console.log("[chat] Image converted to base64, length:", base64.length);
+      let base64: string;
+
+      if (image.type === "image/gif") {
+        // For GIFs, do NOT resize, just read as DataURL
+        base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(image);
+        });
+        console.log("[chat] GIF image sent as base64, length:", base64.length);
+      } else {
+        // For other images, resize as before
+        base64 = await resizeImage(image, 800);
+        console.log("[chat] Image converted to base64, length:", base64.length);
+      }
 
       // Create and send message with image
       const imageMessage: Message = {
@@ -194,7 +207,7 @@ export const Chatroom = () => {
   }
 
   return (
-        <div className="oss-chatroom-viewport bg-background flex" style={{ height: 'var(--oss-app-height)' }}>
+    <div className="oss-chatroom-viewport bg-background flex" style={{ height: 'var(--oss-app-height)' }}>
       {/* Users List - Desktop */}
       {!isMobile && (
         <div className="flex-shrink-0">
@@ -206,7 +219,7 @@ export const Chatroom = () => {
       <div className="flex-1 flex flex-col">
         {/* Header */}
         <div className={`bg-card border-b border-border flex flex-col gap-2 sm:flex-row sm:items-center sm:space-x-4 ${isMobile ? "py-2" : "p-4"}`}>
-          <div className="flex flex-row items-center justify-between w-full relative" style={{minHeight: '3rem'}}>
+          <div className="flex flex-row items-center justify-between w-full relative" style={{ minHeight: '3rem' }}>
             {/* Mobile: Hamburger Drawer Trigger */}
             {isMobile && (
               <Button
@@ -244,7 +257,7 @@ export const Chatroom = () => {
               <ChatMessage key={message.id} message={message} currentUser={currentUser} />
             ))}
           </div>
-          
+
           {/* Input */}
           <div className="border-t border-border p-4">
             <ChatInput onSendMessage={handleSendMessage} />
