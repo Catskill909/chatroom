@@ -1,7 +1,10 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, Image, X } from "lucide-react";
+import { Send, Image, X, Smile } from "lucide-react";
+import Picker from "@emoji-mart/react";
+import data from "@emoji-mart/data";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 
 interface ChatInputProps {
   onSendMessage: (content: string, image?: File) => void;
@@ -11,6 +14,8 @@ export const ChatInput = ({ onSendMessage }: ChatInputProps) => {
   const [message, setMessage] = useState("");
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -25,7 +30,7 @@ export const ChatInput = ({ onSendMessage }: ChatInputProps) => {
         alert('Image is too large. Maximum size is 5MB.');
         return;
       }
-      
+
       setSelectedImage(file);
       const url = URL.createObjectURL(file);
       setImagePreview(url);
@@ -85,15 +90,70 @@ export const ChatInput = ({ onSendMessage }: ChatInputProps) => {
       <div className="flex space-x-2">
         <div className="flex-1 relative">
           <Input
+            ref={inputRef}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={handleKeyPress}
             placeholder="Type a message..."
             className="bg-input border-border text-foreground pr-12"
           />
-          
-          {/* Image Upload Button */}
-          <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+
+          {/* Emoji & Image Upload Buttons */}
+          <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex space-x-1">
+            {/* Emoji Picker Button */}
+            <Popover open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  className="p-2 h-8 w-8 hover:bg-accent text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
+                  aria-label="Open emoji picker"
+                >
+                  <Smile className="w-4 h-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" sideOffset={8} className="p-0 w-auto bg-background border-none shadow-lg">
+                <div className="relative">
+                  <button
+                    className="absolute top-2 right-2 z-10 text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowEmojiPicker(false)}
+                    aria-label="Close emoji picker"
+                    tabIndex={0}
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                  <Picker
+                    data={data}
+                    theme="dark"
+                    onEmojiSelect={(emoji: any) => {
+                      if (inputRef.current) {
+                        const start = inputRef.current.selectionStart || 0;
+                        const end = inputRef.current.selectionEnd || 0;
+                        const emojiChar = emoji.native || "";
+                        const newMsg =
+                          message.slice(0, start) +
+                          emojiChar +
+                          message.slice(end);
+                        setMessage(newMsg);
+                        setTimeout(() => {
+                          inputRef.current?.focus();
+                          inputRef.current?.setSelectionRange(
+                            start + emojiChar.length,
+                            start + emojiChar.length
+                          );
+                        }, 0);
+                      }
+                      setShowEmojiPicker(false);
+                    }}
+                    previewPosition="none"
+                    skinTonePosition="none"
+                  />
+                </div>
+              </PopoverContent>
+            </Popover>
+            {/* Image Upload Button */}
             <input
               ref={fileInputRef}
               type="file"

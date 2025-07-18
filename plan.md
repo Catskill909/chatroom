@@ -57,6 +57,21 @@ Create a robust, classic real-time chatroom where:
 - **UsernameModal.tsx**: User authentication and avatar upload
 - **UsersList.tsx**: Online users display
 
+### Emoji Picker Integration
+
+- **Library:** Integrate [`emoji-mart`](https://github.com/missive/emoji-mart) for a robust, customizable emoji picker with TypeScript support.
+- **UI/UX:** Add an emoji icon next to the image upload icon in [`ChatInput.tsx`](src/components/ChatInput.tsx:1). Clicking the emoji icon opens a popover with the emoji picker.
+- **Interaction:** When an emoji is selected, it is inserted at the current cursor position in the chat input field. Emojis are sent as part of the chat message and rendered in the chat window.
+- **Implementation:** Use shadcn-ui popover/dialog for the emoji picker display. Ensure accessibility and mobile compatibility.
+
+```mermaid
+flowchart TD
+  A[User clicks emoji icon] --> B[Show emoji picker popover]
+  B --> C[User selects emoji]
+  C --> D[Emoji inserted into chat input field]
+  D --> E[User sends message]
+  E --> F[Message with emoji appears in chat]
+```
 ### Backend (server.js)
 - WebSocket server for real-time communication
 - In-memory storage for users and messages
