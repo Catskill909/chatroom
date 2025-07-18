@@ -1,10 +1,11 @@
 # Real-Time Chatroom
 
-A robust, real-time group chatroom with custom avatar upload, built with React, TypeScript, Vite, shadcn-ui, and Tailwind CSS. All users see the same chat messages and user list in real time. Avatars are uploaded as base64 strings and shared across all clients.
+A robust, real-time group chatroom with audio and image upload, built with React, TypeScript, Vite, shadcn-ui, and Tailwind CSS. All users see the same chat messages and user list in real time. Audio and image files are uploaded and shared instantly with modern playback and preview features.
 
 ## Features
 
 - Real-time chat with instant message delivery
+- Audio file upload and playback in chat (with metadata and cover art)
 - Custom avatar upload and display for each user
 - Image sharing in chat messages with automatic resizing
 - User list with avatars
@@ -12,25 +13,27 @@ A robust, real-time group chatroom with custom avatar upload, built with React, 
 - All state synchronized via backend events (no local-only state)
 - Deep logging and error handling
 
-## Image Upload
+## Audio & Image Upload
 
-The chat supports image sharing with the following features:
-- Click the image icon in the chat input to select an image
+The chat supports audio and image sharing with the following features:
+- Click the audio or image icon in the chat input to select a file
+- Audio files are uploaded directly (no base64 conversion)
+- Cover art and metadata are extracted and displayed with audio messages
 - Images are automatically resized and optimized
-- Maximum file size: 5MB
-- Supported formats: All standard image formats (JPEG, PNG, GIF, etc.)
-- Images are displayed inline with chat messages
+- Maximum file size: 10MB for audio, 5MB for images
+- Supported formats: All standard image and audio formats (JPEG, PNG, GIF, MP3, WAV, etc.)
+- Images and audio are displayed inline with chat messages
 
 ## Architecture
 
-- **Frontend:** React + TypeScript, modular components for chat, user management, avatars, and input
-- **Backend:** Node.js server (see `server.js`) manages users, messages, and avatar data in memory
-- **Communication:** WebSockets for real-time updates
+- **Frontend:** React + TypeScript, modular components for chat, user management, avatars, input, audio player, and upload logic
+- **Backend:** Node.js server (see `server.js`) manages users, messages, uploads, and avatar data in memory and filesystem
+- **Communication:** WebSockets for real-time updates; REST endpoints for file uploads
 
-## 🚨 IMPORTANT: Local Environment Setup
+## 🚨 IMPORTANT: Local & Production Environment Setup
 
-**You MUST create a `.env` file in the project root before running the app locally.**
-
+- The backend **always runs on port 3000** (required for Coolify and production).
+- You MUST create a `.env` file in the project root before running the app locally.
 - The `.env` file is NOT tracked by git and must be created by each developer.
 - Add this line to your `.env` file:
   
@@ -60,20 +63,17 @@ cd chatroom
 # Install dependencies
 npm install
 
-# Start the backend server
+# Build the frontend
+npm run build
+
+# Start the backend server (serves both backend and built frontend)
 node server.js
 
-# In a separate terminal, start the frontend dev server
+# Alternatively, for separate dev frontend:
 npm run dev
 ```
 
-- Open your browser at `http://localhost:5173` (or the port shown in the terminal).
-
-### Project Structure
-
-- `src/components/` — React components for chatroom, messages, avatars, user modal, etc.
-- `server.js` — Node.js backend for real-time communication and state management
-- `plan.md` — Architecture plan and implementation notes
+- Open your browser at `http://localhost:3000` (production build) or the port shown in the terminal for dev.
 
 ## Technologies Used
 
@@ -160,6 +160,11 @@ Then set:
 - `src/components/` — React components for chatroom, messages, avatars, user modal, etc.
 - `server.js` — Node.js backend for real-time communication and state management
 - `plan.md` — Architecture plan and implementation notes
+
+## Known Issues
+
+- Audio upload works in local development but may fail in production due to CORS or endpoint configuration. See `live-audio-upload-errors.md` for tracking and future fixes.
+- If static assets (CSS/JS) fail to load in production, check `DEPLOYMENT.md` and `critical-fix-needed.md` for troubleshooting steps.
 
 ## Further Reading
 

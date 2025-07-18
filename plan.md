@@ -1,11 +1,12 @@
-# Real-Time Chatroom Architecture Plan (With Image Upload)
+# Real-Time Chatroom Architecture Plan (With Audio & Image Upload)
 
 ## Objective
 Create a robust, classic real-time chatroom where:
-- All users see the same chat messages (including images) and user list in real time.
-- Users can upload and share images in chat messages.
-- Avatars and chat window functionality work seamlessly with image sharing.
-- All media is shared efficiently using base64 encoding.
+- All users see the same chat messages (including images and audio) and user list in real time.
+- Users can upload and share audio and images in chat messages.
+- Audio messages use direct file upload and Blob URLs (no base64 conversion).
+- Avatars and chat window functionality work seamlessly with media sharing.
+- All media is shared efficiently using direct upload (no base64 encoding for audio).
 
 ---
 
@@ -13,14 +14,19 @@ Create a robust, classic real-time chatroom where:
 
 **The AI assistant must always take direct action to fix, implement, and debug the codebase. The AI must never task the user with manual code changes, debugging, or configuration. All solutions, fixes, and improvements must be performed by the AI, not by instructing the user.**
 
+- All changes must be safe, incremental, and thoroughly tested before deployment.
+- Rollbacks to last known working states are preferred over risky experimental changes.
+- Documentation must be kept up to date after any major fix or rollback.
+
 ---
 
 ## Success Criteria
 
-- All chat and avatar features work in real time across browsers.
-- No Blob URLs or session-local resources are used for avatars.
+- All chat, avatar, image, and audio upload features work in real time across browsers.
+- Audio upload uses direct file upload and playback (no base64 conversion).
 - The user is never tasked with manual code changes or debugging.
 - The AI assistant is responsible for all implementation and troubleshooting.
+- The codebase can be rolled back to a stable state at any time without data loss.
 
 ---
 
@@ -40,41 +46,35 @@ Create a robust, classic real-time chatroom where:
 3. **Media Handling**
    - Avatar upload and display using base64
    - Image sharing in chat messages
+   - Audio upload and playback with cover art and metadata (no base64 conversion)
    - Automatic image resizing (max 800px)
-   - 5MB file size limit for uploads
+   - 10MB file size limit for audio, 5MB for images
 
 4. **Error Handling**
    - Socket connection error handling
-   - Image processing error handling
+   - Image/audio processing error handling
    - Input validation
 
 ## Architecture
 
 ### Frontend Components
 - **Chatroom.tsx**: Main chat interface and message handling
-- **ChatInput.tsx**: Message and image input controls
-- **ChatMessage.tsx**: Individual message display
+- **ChatInput.tsx**: Message, image, and audio input controls
+- **ChatMessage.tsx**: Individual message display (supports audio player and cover art)
 - **UsernameModal.tsx**: User authentication and avatar upload
 - **UsersList.tsx**: Online users display
 
 ### Emoji Picker Integration
 
-- **Library:** Integrate [`emoji-mart`](https://github.com/missive/emoji-mart) for a robust, customizable emoji picker with TypeScript support.
-- **UI/UX:** Add an emoji icon next to the image upload icon in [`ChatInput.tsx`](src/components/ChatInput.tsx:1). Clicking the emoji icon opens a popover with the emoji picker.
-- **Interaction:** When an emoji is selected, it is inserted at the current cursor position in the chat input field. Emojis are sent as part of the chat message and rendered in the chat window.
-- **Implementation:** Use shadcn-ui popover/dialog for the emoji picker display. Ensure accessibility and mobile compatibility.
+- **Library:** Integrate [`emoji-mart`](https://github.com/missive/emoji-mart) for emoji picker.
+- **UI/UX:** Emoji icon in [`ChatInput.tsx`](src/components/ChatInput.tsx:1) opens a popover.
+- **Interaction:** Emoji inserted at cursor position in chat input.
+- **Implementation:** Uses shadcn-ui popover/dialog for accessibility and mobile compatibility.
 
-```mermaid
-flowchart TD
-  A[User clicks emoji icon] --> B[Show emoji picker popover]
-  B --> C[User selects emoji]
-  C --> D[Emoji inserted into chat input field]
-  D --> E[User sends message]
-  E --> F[Message with emoji appears in chat]
-```
 ### Backend (server.js)
 - WebSocket server for real-time communication
-- In-memory storage for users and messages
+- REST endpoints for audio/image upload
+- In-memory storage for users and messages; uploads stored on disk
 - Event-based communication
 
 ### Data Flow
@@ -115,6 +115,15 @@ flowchart TD
 
 **The AI assistant must never require the user to perform manual code changes, debugging, or configuration. All code, fixes, and debugging must be performed by the AI directly. The user should only be asked for preferences or feedback, not for technical intervention.**
 
+- All changes must be reversible and thoroughly documented.
+- If a production bug is found, roll back to the last working state before attempting further fixes.
+
+## Lessons Learned / Next Steps
+
+- Always verify production after any change; rollback if any breakage is detected.
+- Document all critical failures and fixes in `critical-fix-needed.md`.
+- Track ongoing production issues (e.g., audio upload bug) in dedicated files (see `live-audio-upload-errors.md`).
+- Do not attempt risky, multi-file changes without a rollback plan.
 
 ## Future Development Ideas
 
