@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, Image, X, Smile } from "lucide-react";
+import { Send, Image, X, Smile, FileMusic } from "lucide-react";
 import Picker from "@emoji-mart/react";
 import data from "@emoji-mart/data";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
@@ -437,9 +437,7 @@ export const ChatInput = ({ onSendMessage }: { onSendMessage: (msg: ChatInputMes
               aria-label="Upload audio"
               type="button"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 19V6a3 3 0 116 0v13m-9-4h12" />
-              </svg>
+              <FileMusic className="w-4 h-4" />
             </Button>
           </div>
         </div>

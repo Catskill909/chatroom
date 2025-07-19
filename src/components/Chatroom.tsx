@@ -29,6 +29,14 @@ export const Chatroom = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [users, setUsers] = useState<ChatUser[]>([]);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  // Ensure scroll to bottom after new message, especially for media
+  useEffect(() => {
+    if (messagesContainerRef.current) {
+      // For flex-col-reverse, scrollTop=0 is bottom
+      messagesContainerRef.current.scrollTop = 0;
+    }
+  }, [messages]);
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const [drawerOpen, setDrawerOpen] = useState(false);
