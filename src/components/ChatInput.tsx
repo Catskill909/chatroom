@@ -144,15 +144,9 @@ export const ChatInput = ({ onSendMessage }: { onSendMessage: (msg: ChatInputMes
         console.log('[DEBUG] Upload successful, received URL:', data.url);
         audioUrl = data.url;
         console.log('[DEBUG] Setting progress to 100%');
-        // Use requestAnimationFrame to ensure DOM updates before setting final state
-        await new Promise(resolve => {
-          setUploadProgress(100);
-          requestAnimationFrame(() => {
-            setUploadStage('complete');
-            setTimeout(resolve, 1000); // Give more time to see completion
-          });
-        });
-        console.log('[DEBUG] Delay complete, proceeding to send message');
+        setUploadProgress(100);
+        setUploadStage('complete');
+        console.log('[DEBUG] Progress set to 100%, waiting for visual update');
       } catch (err) {
         console.error('[DEBUG] Upload error:', err);
         alert('Audio upload failed. Please try again.');
@@ -161,6 +155,14 @@ export const ChatInput = ({ onSendMessage }: { onSendMessage: (msg: ChatInputMes
         return;
       }
     }
+    
+    // If we uploaded an audio file, give time for the 100% progress to be visible
+    if (audioFile && isUploading) {
+      console.log('[DEBUG] Waiting for progress indicator to show completion');
+      await new Promise(resolve => setTimeout(resolve, 1200));
+      console.log('[DEBUG] Progress display complete, proceeding with message');
+    }
+    
     if (message.trim() || selectedImage || audioFile) {
       // Always use backend-served coverUrl, never Blob
       let safeCoverUrl = coverUrl;
