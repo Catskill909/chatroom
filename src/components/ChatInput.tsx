@@ -77,8 +77,12 @@ export const ChatInput = ({ onSendMessage }: { onSendMessage: (msg: ChatInputMes
     // Initialize upload progress if we have an audio file
     if (audioFile) {
       setIsUploading(true);
-      setUploadProgress(0);
-      setUploadStage('cover');
+      // Use setTimeout to ensure state updates are processed before continuing
+      await new Promise(resolve => {
+        setUploadProgress(0);
+        setUploadStage('cover');
+        setTimeout(resolve, 0);
+      });
     }
 
     // If audioFile present and audioMeta has a cover art buffer, upload cover art
@@ -144,9 +148,14 @@ export const ChatInput = ({ onSendMessage }: { onSendMessage: (msg: ChatInputMes
         console.log('[DEBUG] Upload successful, received URL:', data.url);
         audioUrl = data.url;
         console.log('[DEBUG] Setting progress to 100%');
-        setUploadProgress(100);
-        setUploadStage('complete');
-        console.log('[DEBUG] Progress set to 100%, waiting for visual update');
+        // Use functional update and await the state update
+        await new Promise(resolve => {
+          setUploadProgress(100);
+          setUploadStage('complete');
+          console.log('[DEBUG] Progress set to 100%, waiting for visual update');
+          // Ensure the UI has time to update to 100%
+          setTimeout(resolve, 100);
+        });
       } catch (err) {
         console.error('[DEBUG] Upload error:', err);
         alert('Audio upload failed. Please try again.');
