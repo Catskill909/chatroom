@@ -143,8 +143,16 @@ export const ChatInput = ({ onSendMessage }: { onSendMessage: (msg: ChatInputMes
         const data = await res.json();
         console.log('[DEBUG] Upload successful, received URL:', data.url);
         audioUrl = data.url;
-        setUploadProgress(100);
-        setUploadStage('complete');
+        console.log('[DEBUG] Setting progress to 100%');
+        // Use requestAnimationFrame to ensure DOM updates before setting final state
+        await new Promise(resolve => {
+          setUploadProgress(100);
+          requestAnimationFrame(() => {
+            setUploadStage('complete');
+            setTimeout(resolve, 1000); // Give more time to see completion
+          });
+        });
+        console.log('[DEBUG] Delay complete, proceeding to send message');
       } catch (err) {
         console.error('[DEBUG] Upload error:', err);
         alert('Audio upload failed. Please try again.');
@@ -176,6 +184,7 @@ export const ChatInput = ({ onSendMessage }: { onSendMessage: (msg: ChatInputMes
       setAudioPreviewUrl(null);
       setAudioMeta(null);
       // Reset upload progress
+      console.log('[DEBUG] Resetting upload progress');
       setIsUploading(false);
       setUploadProgress(0);
       setUploadStage('cover');
