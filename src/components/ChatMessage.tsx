@@ -5,6 +5,8 @@ import AudioPlayer, { RHAP_UI } from "react-h5-audio-player";
 import "react-h5-audio-player/lib/styles.css";
 import "@/components/audio-player-dark.css";
 import "@/components/audio-player-fullwidth.css";
+import { MagnifierIcon } from "@/components/ui/MagnifierIcon";
+import { ImageModal } from "@/components/ui/ImageModal";
 
 export interface Message {
   id: string;
@@ -29,6 +31,9 @@ interface ChatMessageProps {
 
 export const ChatMessage = ({ message, currentUser }: ChatMessageProps) => {
   const isOwn = message.username === currentUser;
+
+  // Modal state for image preview
+  const [showImageModal, setShowImageModal] = useState(false);
 
   // State to trigger re-render every minute
   const [, setNow] = useState(Date.now());
@@ -133,16 +138,28 @@ export const ChatMessage = ({ message, currentUser }: ChatMessageProps) => {
 
           {/* Image Message Rendering */}
           {message.image && (
-            <div className="mb-2">
-              <img
-                src={message.image}
-                alt="Shared image"
-                className="w-full h-auto max-w-full max-h-64 sm:max-h-80 rounded-lg border border-border object-cover"
-                onLoad={() => console.log("[chat] Image loaded in message")}
-                onError={(e) => console.error("[chat] Image load error:", e)}
-              />
-            </div>
-          )}
+  <div className="mb-2 relative group">
+    <img
+      src={message.image}
+      alt="Shared image"
+      className="w-full h-auto max-w-full max-h-64 sm:max-h-80 rounded-lg border border-border object-cover"
+      onLoad={() => console.log("[chat] Image loaded in message")}
+      onError={(e) => console.error("[chat] Image load error:", e)}
+      style={{ cursor: 'pointer' }}
+      onClick={() => setShowImageModal(true)}
+    />
+    <button
+      type="button"
+      aria-label="View full image"
+      className="absolute top-2 left-2 bg-black/70 rounded-full p-2 opacity-85 group-hover:opacity-100 hover:bg-white/10 hover:text-gray-200 transition-colors flex items-center justify-center shadow-lg focus-visible:ring-2 focus-visible:ring-white"
+      onClick={e => { e.stopPropagation(); setShowImageModal(true); }}
+      tabIndex={0}
+    >
+      <MagnifierIcon className="w-6 h-6 text-white group-hover:text-gray-200 transition-colors" />
+    </button>
+    <ImageModal open={showImageModal} imageUrl={message.image} onClose={() => setShowImageModal(false)} />
+  </div>
+)}
 
           {/* Text Message Rendering */}
           {message.content && (
