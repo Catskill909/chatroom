@@ -33,6 +33,11 @@ export const ChatInput = ({ onSendMessage }: { onSendMessage: (msg: ChatInputMes
   const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null);
   const [audioMeta, setAudioMeta] = useState<{ title?: string; artist?: string; album?: string; coverUrl?: string } | null>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
+  
+  // --- UPLOAD PROGRESS STATE ---
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStage, setUploadStage] = useState<'cover' | 'audio' | 'complete'>('cover');
   // --------------------------
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -69,6 +74,13 @@ export const ChatInput = ({ onSendMessage }: { onSendMessage: (msg: ChatInputMes
   };
 
   const handleSend = async () => {
+    // Initialize upload progress if we have an audio file
+    if (audioFile) {
+      setIsUploading(true);
+      setUploadProgress(0);
+      setUploadStage('cover');
+    }
+
     // If audioFile present and audioMeta has a cover art buffer, upload cover art
     let coverUrl = null;
     if (audioFile && audioMeta && audioMeta.coverUrl && audioMeta.coverUrl.startsWith('blob:')) {
@@ -87,16 +99,19 @@ export const ChatInput = ({ onSendMessage }: { onSendMessage: (msg: ChatInputMes
           const data = await uploadRes.json();
           coverUrl = data.url;
           console.log('[DEBUG] Cover art upload successful, received URL:', coverUrl);
+          setUploadProgress(30); // Cover art complete
         } else {
           const errText = await uploadRes.text();
           console.warn('[DEBUG] Cover art upload failed, response:', errText);
           coverUrl = '/spalsh_image.png';
           alert('Cover art upload failed. Default image will be used.');
+          setUploadProgress(30); // Still progress to audio stage
         }
       } catch (err) {
         console.error('[DEBUG] Cover art upload failed, using fallback:', err);
         coverUrl = '/spalsh_image.png';
         alert('Cover art upload failed. Default image will be used.');
+        setUploadProgress(30); // Still progress to audio stage
       }
     }
     // If no cover or upload failed, fallback
@@ -107,6 +122,8 @@ export const ChatInput = ({ onSendMessage }: { onSendMessage: (msg: ChatInputMes
     let audioUrl = audioPreviewUrl;
     if (audioFile) {
       // Upload audio file to backend
+      setUploadStage('audio');
+      setUploadProgress(50);
       console.log('[DEBUG] Starting audio upload:', audioFile.name, audioFile.size, audioFile.type);
       const formData = new FormData();
       formData.append('audio', audioFile);
@@ -126,9 +143,13 @@ export const ChatInput = ({ onSendMessage }: { onSendMessage: (msg: ChatInputMes
         const data = await res.json();
         console.log('[DEBUG] Upload successful, received URL:', data.url);
         audioUrl = data.url;
+        setUploadProgress(100);
+        setUploadStage('complete');
       } catch (err) {
         console.error('[DEBUG] Upload error:', err);
         alert('Audio upload failed. Please try again.');
+        setIsUploading(false);
+        setUploadProgress(0);
         return;
       }
     }
@@ -154,6 +175,10 @@ export const ChatInput = ({ onSendMessage }: { onSendMessage: (msg: ChatInputMes
       setAudioFile(null);
       setAudioPreviewUrl(null);
       setAudioMeta(null);
+      // Reset upload progress
+      setIsUploading(false);
+      setUploadProgress(0);
+      setUploadStage('cover');
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -221,6 +246,29 @@ export const ChatInput = ({ onSendMessage }: { onSendMessage: (msg: ChatInputMes
           >
             <X className="w-3 h-3" />
           </Button>
+        </div>
+      )}
+
+      {/* Upload Progress Indicator */}
+      {isUploading && (
+        <div className="mb-3 bg-muted/50 rounded-lg p-4 border border-border/50">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center space-x-2">
+              <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+              <span className="text-sm font-medium text-foreground">
+                {uploadStage === 'cover' && 'Uploading cover art...'}
+                {uploadStage === 'audio' && 'Uploading audio file...'}
+                {uploadStage === 'complete' && 'Upload complete!'}
+              </span>
+            </div>
+            <span className="text-xs text-muted-foreground font-mono">{uploadProgress}%</span>
+          </div>
+          <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+            <div 
+              className="h-full bg-gradient-to-r from-primary to-primary/80 rounded-full transition-all duration-300 ease-out"
+              style={{ width: `${uploadProgress}%` }}
+            ></div>
+          </div>
         </div>
       )}
 
