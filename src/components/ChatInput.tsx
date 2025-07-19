@@ -38,6 +38,16 @@ export const ChatInput = ({ onSendMessage }: { onSendMessage: (msg: ChatInputMes
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Helper function to get correct backend URL for uploads
+  const getBackendUrl = () => {
+    if (import.meta.env.DEV) {
+      // In development, use VITE_SOCKET_URL or localhost fallback
+      return import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
+    }
+    // In production, use relative URLs (same domain as frontend)
+    return '';
+  };
+
   const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -66,7 +76,7 @@ export const ChatInput = ({ onSendMessage }: { onSendMessage: (msg: ChatInputMes
         console.log('[DEBUG] Preparing to upload cover art:', audioMeta.coverUrl);
         // Convert blob URL to Blob
         const blob = await fetch(audioMeta.coverUrl).then(r => r.blob());
-        const backendUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
+        const backendUrl = getBackendUrl();
         const formData = new FormData();
         formData.append('cover', blob, 'cover.png');
         const uploadRes = await fetch(`${backendUrl}/upload/cover`, {
@@ -102,7 +112,7 @@ export const ChatInput = ({ onSendMessage }: { onSendMessage: (msg: ChatInputMes
       formData.append('audio', audioFile);
       console.log('[DEBUG] FormData created, uploading to /upload/audio');
       try {
-        const backendUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
+        const backendUrl = getBackendUrl();
         const res = await fetch(`${backendUrl}/upload/audio`, {
           method: 'POST',
           body: formData,
