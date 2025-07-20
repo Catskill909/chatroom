@@ -1,53 +1,254 @@
-import type { ChatInputMessage } from "./ChatInput";
-// Socket.IO client singleton (outside component)
-import { io } from "socket.io-client";
-// Use environment variable for Socket.IO URL if set, otherwise default to relative URL (same origin)
-const socket = io(
-  import.meta.env.VITE_SOCKET_URL ? import.meta.env.VITE_SOCKET_URL : '/',
-  {
-    // Allow credentials/cookies if needed for future expansion
-    withCredentials: false,
-    transports: ['websocket', 'polling'], // robust fallback for most hosts
-  }
-);
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useLocalStorage } from 'usehooks-ts';
+import { io, Socket } from 'socket.io-client';
+import { useToast } from './ui/use-toast';
+import { Button } from './ui/button';
+import { Sheet, SheetContent } from './ui/sheet';
+import { formatDistanceToNow } from 'date-fns';
+import { v4 as uuidv4 } from 'uuid';
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { UsernameModal } from "./UsernameModal";
-import { ChatMessage, type Message } from "./ChatMessage";
-import { ChatInput } from "./ChatInput";
-import { UsersList, type ChatUser } from "./UsersList";
-import { useToast } from "@/hooks/use-toast";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
-import { Menu } from "lucide-react";
+// UI Components
+import { ChatInput } from './ChatInput';
+import { ChatMessage } from './ChatMessage';
+import { UsersList } from './UsersList';
+import { UsernameModal } from './UsernameModal';
+import { UserSettingsModal } from './UserSettingsModal';
+import type { ChatInputMessage } from './ChatInput';
+
+// Custom hook for mobile detection
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  return isMobile;
+};
+
+// Types
+interface Message {
+  id: string;
+  username: string;
+  content: string;
+  timestamp: Date;
+  avatar?: string;
+  image?: string;
+  audio?: string;
+  audioMeta?: { title?: string; artist?: string; album?: string; coverUrl?: string };
+}
+
+interface ChatUser {
+  id: string;
+  username: string;
+  avatar?: string;
+  status?: 'online' | 'away' | 'offline';
+  lastSeen?: Date;
+  isOnline: boolean;
+}
 
 export const Chatroom = () => {
+  const { toast } = useToast();
+  const isMobile = useIsMobile();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // User state
+  const [currentUser, setCurrentUser] = useLocalStorage<string>('username', '');
+  const [userAvatar, setUserAvatar] = useLocalStorage<string | null>('userAvatar', null);
   const [showUsernameModal, setShowUsernameModal] = useState(true);
-  const [currentUser, setCurrentUser] = useState<string>("");
-  const [userAvatar, setUserAvatar] = useState<string | null>(null);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  
+  // Chat state
   const [messages, setMessages] = useState<Message[]>([]);
   const [users, setUsers] = useState<ChatUser[]>([]);
+  
+  // Notification settings
+  const [notificationsEnabled, setNotificationsEnabled] = useLocalStorage<boolean>('notificationEnabled', true);
+  
+  // Refs
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const isInitialMount = useRef(true);
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioBufferRef = useRef<AudioBuffer | null>(null);
-  const isInitialMount = useRef(true);
+  
+  // Store user info in refs for reconnect logic
+  const userRef = useRef<{ username: string; avatar: string | null }>({ 
+    username: currentUser, 
+    avatar: userAvatar 
+  });
 
-  // Play notification sound when new messages arrive
+  // Socket connection
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+
+  // Initialize socket connection
   useEffect(() => {
-    // Skip the initial mount and empty messages array
-    if (isInitialMount.current || messages.length === 0) {
+    const url = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
+    const socketInstance = io(url, {
+      autoConnect: true,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      randomizationFactor: 0.5,
+    });
+
+    const handleConnect = () => {
+      console.log("[socket] connected", socketInstance.id);
+      setIsConnected(true);
+      if (userRef.current.username) {
+        // Limit avatar size to prevent socket disconnection
+        let avatarForJoin = userRef.current.avatar;
+        if (avatarForJoin && avatarForJoin.length > 50000) {
+          console.warn('[socket] Avatar too large for join, sending without avatar');
+          avatarForJoin = null;
+        }
+        
+        socketInstance.emit("join", {
+          username: userRef.current.username,
+          avatar: avatarForJoin,
+        });
+        console.log("[socket] emitted join (on connect)", {
+          username: userRef.current.username,
+          avatar: avatarForJoin ? 'avatar-included' : 'no-avatar'
+        });
+      }
+    };
+
+    const handleDisconnect = (reason: string) => {
+      console.warn("[socket] disconnected", reason);
+      setIsConnected(false);
+      if (reason !== "io client disconnect") {
+        toast({
+          title: "Disconnected",
+          description: "Connection to chat server lost. Reconnecting...",
+          variant: "default",
+        });
+      }
+    };
+
+    const handleConnectError = (err: any) => {
+      console.error("[socket] connect_error", err);
+      if (err.message !== "xhr poll error") {
+        toast({
+          title: "Connection Error",
+          description: "Unable to connect to the chat server. Please try again.",
+          variant: "destructive",
+        });
+      }
+    };
+
+    const handleUsers = (usersList: ChatUser[]) => {
+      console.log('[handleUsers] Received users list update:', usersList.map(u => ({
+        username: u.username,
+        avatar: u.avatar ? 'has-avatar' : 'no-avatar'
+      })));
+      
+      // Ensure all users have isOnline property set
+      const usersWithOnlineStatus = usersList.map(user => ({
+        ...user,
+        isOnline: user.isOnline ?? true // Default to true if not specified
+      }));
+      
+      // Update users list
+      setUsers(usersWithOnlineStatus);
+      
+      // Update the current user's avatar from the server if it's different
+      const currentUserData = usersWithOnlineStatus.find(u => u.username === currentUser);
+      if (currentUserData?.avatar && currentUserData.avatar !== userAvatar) {
+        console.log('[handleUsers] Updating local avatar from server');
+        setUserAvatar(currentUserData.avatar);
+        userRef.current = { ...userRef.current, avatar: currentUserData.avatar };
+      }
+    };
+
+    const handleMessage = (msg: any) => {
+      console.log("[socket] received message", msg);
+      setMessages(prev => [...prev, msg]);
+    };
+
+    const handleHistory = (history: any) => {
+      console.log("[socket] received history");
+      setMessages(history);
+    };
+
+    const handleJoinError = (err: any) => {
+      toast({ 
+        title: "Username Error", 
+        description: err.message, 
+        variant: "destructive" 
+      });
+      setShowUsernameModal(true);
+      setCurrentUser("");
+      setUserAvatar(null);
+    };
+
+    // Set up event listeners
+    socketInstance.on('connect', handleConnect);
+    socketInstance.on('disconnect', handleDisconnect);
+    socketInstance.on('connect_error', handleConnectError);
+    socketInstance.on('users', handleUsers);
+    socketInstance.on('message', handleMessage);
+    socketInstance.on('history', handleHistory);
+    socketInstance.on('join_error', handleJoinError);
+
+    setSocket(socketInstance);
+
+    // Clean up function
+    return () => {
+      console.log("[socket] Cleaning up event listeners");
+      socketInstance.off('connect', handleConnect);
+      socketInstance.off('disconnect', handleDisconnect);
+      socketInstance.off('connect_error', handleConnectError);
+      socketInstance.off('users', handleUsers);
+      socketInstance.off('message', handleMessage);
+      socketInstance.off('history', handleHistory);
+      socketInstance.off('join_error', handleJoinError);
+      
+      if (!window.location.pathname.includes('chat')) {
+        console.log("[socket] Disconnecting...");
+        socketInstance.disconnect();
+      }
+    };
+  }, [currentUser, userAvatar, toast]);
+
+  // Update user ref when currentUser or userAvatar changes
+  useEffect(() => {
+    userRef.current = { username: currentUser, avatar: userAvatar };
+  }, [currentUser, userAvatar]);
+
+  // Show username modal if no current user
+  useEffect(() => {
+    if (!currentUser) {
+      setShowUsernameModal(true);
+    }
+  }, [currentUser]);
+
+  // Show username modal if no current user
+  useEffect(() => {
+    if (!currentUser) {
+      setShowUsernameModal(true);
+    }
+  }, [currentUser]);
+
+  // Notification sound effect
+  useEffect(() => {
+    if (!notificationsEnabled || isInitialMount.current || messages.length === 0) {
       isInitialMount.current = false;
       return;
     }
 
     const playNotification = async () => {
       try {
-        // Lazy initialize audio context on first notification
         if (!audioContextRef.current) {
           audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
           
-          // Load the audio file
           try {
             const response = await fetch('/notification.mp3');
             const arrayBuffer = await response.arrayBuffer();
@@ -63,7 +264,6 @@ export const Chatroom = () => {
         
         if (!audioBuffer) return;
         
-        // Resume audio context if it was suspended (required by autoplay policies)
         if (audioContext.state === 'suspended') {
           await audioContext.resume();
         }
@@ -78,69 +278,33 @@ export const Chatroom = () => {
     };
 
     playNotification();
-  }, [messages.length]);
+  }, [messages.length, notificationsEnabled]);
 
-  // Ensure scroll to bottom after new message, especially for media
+  // Ensure scroll to bottom after new message
   useEffect(() => {
     if (messagesContainerRef.current) {
-      // For flex-col-reverse, scrollTop=0 is bottom
       messagesContainerRef.current.scrollTop = 0;
     }
   }, [messages]);
-  const { toast } = useToast();
-  const isMobile = useIsMobile();
-  const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // Store user info in refs for reconnect logic
-  const userRef = useRef<{ username: string; avatar: string | null }>({ username: "", avatar: null });
-
-  useEffect(() => {
-    socket.on("users", (usersList) => {
-      console.log("[socket] received users", usersList);
-      console.log("[debug] users count:", usersList.length);
-      setUsers(usersList);
-    });
-    socket.on("history", (history) => {
-      console.log("[socket] received history", history);
-      setMessages(history);
-    });
-    socket.on("message", (msg) => {
-      console.log("[socket] received message", msg);
-      setMessages(prev => [...prev, msg]);
-    });
-    socket.on("join_error", (err) => {
-      toast({ title: "Username Error", description: err.message, variant: "destructive" });
-      setShowUsernameModal(true);
-      setCurrentUser("");
-      setUserAvatar(null);
-    });
-
-    // On connect, emit join if user is set
-    socket.on("connect", () => {
-      console.log("[socket] connected", socket.id);
-      if (userRef.current.username) {
-        socket.emit("join", {
-          username: userRef.current.username,
-          avatar: userRef.current.avatar,
-        });
-        console.log("[socket] emitted join (on connect)", userRef.current);
-      }
-    });
-
-    socket.on("connect_error", (err) => console.error("[socket] connect_error", err));
-    socket.on("disconnect", (reason) => console.warn("[socket] disconnected", reason));
-    return () => {
-      socket.off("users");
-      socket.off("history");
-      socket.off("message");
-      socket.off("connect");
-      socket.off("connect_error");
-      socket.off("disconnect");
-    };
-  }, []);
-
-  // Note: Chat auto-scroll is now handled by CSS flex-direction: column-reverse
-  // No JavaScript scrolling needed!
+  // Handle avatar change - SIMPLIFIED VERSION
+  const handleAvatarChange = useCallback((avatar: string) => {
+    if (!currentUser) return;
+    
+    // Update local state only
+    const newAvatar = avatar || null;
+    setUserAvatar(newAvatar);
+    userRef.current = { ...userRef.current, avatar: newAvatar };
+    
+    // Update messages with new avatar
+    setMessages(prevMessages => 
+      prevMessages.map(msg => 
+        msg.username === currentUser 
+          ? { ...msg, avatar: newAvatar || undefined } 
+          : msg
+      )
+    );
+  }, [currentUser, setUserAvatar]);
 
   const handleUsernameSubmit = (username: string, avatarBase64?: string) => {
     setCurrentUser(username);
@@ -148,23 +312,20 @@ export const Chatroom = () => {
     setUserAvatar(avatarBase64 || null);
     userRef.current = { username, avatar: avatarBase64 || null };
 
-    // Emit join if already connected
-    if (socket.connected) {
+    if (socket?.connected) {
       socket.emit("join", {
         username,
         avatar: avatarBase64,
       });
-      console.log("[socket] emitted join (on submit)", { username, avatar: avatarBase64 });
-    } else {
-      console.warn("[socket] not connected, will emit join on connect");
     }
+    
     toast({
       title: "Welcome to the chatroom!",
       description: `You're now chatting as ${username}`,
     });
   };
 
-  // Resize image before converting to base64 - SAME function used for avatars
+  // Resize image before converting to base64
   const resizeImage = (file: File, maxSize = 800): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = new window.Image();
@@ -201,18 +362,17 @@ export const Chatroom = () => {
   };
 
   const handleSendMessage = async (msg: ChatInputMessage) => {
-    if (!currentUser) return;
+    if (!currentUser || !socket) return;
 
     // AUDIO MESSAGE
     if (msg.audioPreviewUrl) {
-      // Use Blob URL directly instead of converting to base64
       const audioMessage: Message = {
         id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
         username: currentUser,
         content: msg.content,
         timestamp: new Date(),
         avatar: userAvatar || undefined,
-        audio: msg.audioPreviewUrl, // Use the existing Blob URL
+        audio: msg.audioPreviewUrl,
         audioMeta: msg.audioMeta || undefined,
       };
       console.log('[DEBUG] Emitting audio message:', audioMessage);
@@ -253,7 +413,7 @@ export const Chatroom = () => {
       return;
     }
 
-    // TEXT ONLY
+    // TEXT MESSAGE
     if (msg.content.trim()) {
       const textMessage: Message = {
         id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
@@ -266,7 +426,6 @@ export const Chatroom = () => {
     }
   };
 
-
   if (showUsernameModal) {
     return <UsernameModal isOpen={showUsernameModal} onSubmit={handleUsernameSubmit} />;
   }
@@ -276,7 +435,11 @@ export const Chatroom = () => {
       {/* Users List - Desktop */}
       {!isMobile && (
         <div className="flex-shrink-0">
-          <UsersList users={users} currentUser={currentUser} />
+          <UsersList 
+            users={users} 
+            currentUser={currentUser} 
+            onSettingsClick={() => setShowSettingsModal(true)}
+          />
         </div>
       )}
 
@@ -309,7 +472,6 @@ export const Chatroom = () => {
                 className={`${isMobile ? "h-8" : "h-12"} w-auto`}
               />
             </div>
-            {/* Invisible placeholder for perfect centering */}
             {isMobile && <div className="h-8 w-8" style={{ visibility: 'hidden' }} />}
           </div>
         </div>
@@ -330,12 +492,29 @@ export const Chatroom = () => {
         </div>
       </div>
 
+      {/* User Settings Modal */}
+      <UserSettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        currentUser={currentUser}
+        currentAvatar={userAvatar}
+        onAvatarChange={handleAvatarChange}
+        notificationsEnabled={notificationsEnabled}
+        onNotificationToggle={setNotificationsEnabled}
+      />
+
       {/* Mobile Drawer */}
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
         <SheetContent side="left" className="w-80 p-0">
-          <UsersList users={users} currentUser={currentUser} />
+          <UsersList 
+            users={users} 
+            currentUser={currentUser} 
+            onSettingsClick={() => setShowSettingsModal(true)}
+          />
         </SheetContent>
       </Sheet>
     </div>
   );
 };
+
+export default Chatroom;

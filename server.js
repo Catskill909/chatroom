@@ -150,6 +150,43 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Handle avatar updates
+    socket.on('update_avatar', ({ username, avatar }) => {
+        console.log(`[update_avatar] Received request to update avatar for ${username}`);
+        console.log(`[update_avatar] Current users:`, Object.values(users).map(u => ({
+            username: u.username,
+            avatar: u.avatar ? 'has-avatar' : 'no-avatar'
+        })));
+        
+        let found = false;
+        // Find and update the user's avatar
+        for (const [id, user] of Object.entries(users)) {
+            if (user.username === username) {
+                users[id] = { ...user, avatar };
+                console.log(`[update_avatar] Updated avatar for ${username}`);
+                found = true;
+                break;
+            }
+        }
+        
+        if (!found) {
+            console.warn(`[update_avatar] User ${username} not found in users list`);
+            return;
+        }
+        
+        // Broadcast the updated users list
+        const uniqueUsers = Object.values(users).filter((u, i, arr) => 
+            arr.findIndex(other => other.username === u.username) === i
+        );
+        
+        console.log(`[update_avatar] Broadcasting updated users list:`, uniqueUsers.map(u => ({
+            username: u.username,
+            avatar: u.avatar ? 'has-avatar' : 'no-avatar'
+        })));
+        
+        io.emit('users', uniqueUsers);
+    });
+
     socket.on('error', (err) => {
         console.error(`[socket error]`, err);
     });
