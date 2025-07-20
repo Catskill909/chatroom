@@ -183,8 +183,6 @@ Then set:
 
 ## Known Issues
 
-- Audio upload works in local development but may fail in production due to CORS or endpoint configuration. See `live-audio-upload-errors.md` for tracking and future fixes.
-- If static assets (CSS/JS) fail to load in production, check `DEPLOYMENT.md` and `critical-fix-needed.md` for troubleshooting steps.
 
 ## Further Reading
 

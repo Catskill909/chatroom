@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Send, Image, X, Smile, FileMusic } from "lucide-react";
+import "./ChatInput.css";
 import Picker from "@emoji-mart/react";
 import data from "@emoji-mart/data";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
@@ -313,9 +314,10 @@ export const ChatInput = ({ onSendMessage }: { onSendMessage: (msg: ChatInputMes
                   variant="ghost"
                   size="sm"
                   type="button"
-                  className="p-2 h-8 w-8 hover:bg-accent text-muted-foreground hover:text-foreground"
+                  className="tooltip-container p-2 h-8 w-8 hover:bg-accent text-muted-foreground hover:text-foreground"
                   tabIndex={-1}
                   aria-label="Open emoji picker"
+                  data-tooltip="Emoji"
                 >
                   <Smile className="w-4 h-4" />
                 </Button>
@@ -372,7 +374,8 @@ export const ChatInput = ({ onSendMessage }: { onSendMessage: (msg: ChatInputMes
               variant="ghost"
               size="sm"
               onClick={() => document.getElementById('image-upload')?.click()}
-              className="p-2 h-8 w-8 hover:bg-accent text-muted-foreground hover:text-foreground"
+              className="tooltip-container p-2 h-8 w-8 hover:bg-accent text-muted-foreground hover:text-foreground"
+              data-tooltip="Upload an image"
             >
               <Image className="w-4 h-4" />
             </Button>
@@ -433,7 +436,8 @@ export const ChatInput = ({ onSendMessage }: { onSendMessage: (msg: ChatInputMes
               variant="ghost"
               size="sm"
               onClick={() => document.getElementById('audio-upload')?.click()}
-              className="p-2 h-8 w-8 hover:bg-accent text-muted-foreground hover:text-foreground"
+              className="tooltip-container p-2 h-8 w-8 hover:bg-accent text-muted-foreground hover:text-foreground"
+              data-tooltip="Upload an audio file"
               aria-label="Upload audio"
               type="button"
             >
