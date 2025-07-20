@@ -6,14 +6,15 @@ A robust, real-time group chatroom with audio and image upload, built with React
 
 - Real-time chat with instant message delivery
 - Audio file upload and playback in chat (with metadata and cover art)
-- Custom avatar upload and display for each user
-- Image sharing in chat messages with automatic resizing
-- User list with avatars
+- Custom avatar upload and management for each user
+- Image sharing in chat messages with click-to-enlarge modal
+- User list with avatars and online status
+- Audio notification settings (enable/disable sounds)
 - Responsive UI with shadcn-ui and Tailwind CSS
 - All state synchronized via backend events (no local-only state)
 - Deep logging and error handling
 
-## Audio & Image Upload
+#### Audio & Image Upload
 
 The chat supports audio and image sharing with the following features:
 - Click the audio or image icon in the chat input to select a file
@@ -23,6 +24,25 @@ The chat supports audio and image sharing with the following features:
 - Maximum file size: 10MB for audio, 5MB for images
 - Supported formats: All standard image and audio formats (JPEG, PNG, GIF, MP3, WAV, etc.)
 - Images and audio are displayed inline with chat messages
+
+### Account & Notifications
+
+#### Avatar Management
+  - Upload a custom avatar (automatically resized and compressed)
+  - Avatar updates are synced across all connected clients
+  - Supports JPG, PNG, and WebP formats
+
+#### Notification Settings
+  - Toggle sound effects for new messages
+  - Notification sounds play when receiving new messages (when chat is not focused)
+  - Volume control for notification sounds
+
+### Media Viewing
+
+#### Image Gallery
+  - Click any image in chat to open it in a full-screen modal
+  - Zoom and pan high-resolution images
+  - Click outside or press Escape to close
 
 ## Architecture
 
