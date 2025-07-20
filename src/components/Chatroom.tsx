@@ -11,7 +11,7 @@ const socket = io(
   }
 );
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { UsernameModal } from "./UsernameModal";
 import { ChatMessage, type Message } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
@@ -29,6 +29,56 @@ export const Chatroom = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [users, setUsers] = useState<ChatUser[]>([]);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioBufferRef = useRef<AudioBuffer | null>(null);
+  const isInitialMount = useRef(true);
+
+  // Play notification sound when new messages arrive
+  useEffect(() => {
+    // Skip the initial mount and empty messages array
+    if (isInitialMount.current || messages.length === 0) {
+      isInitialMount.current = false;
+      return;
+    }
+
+    const playNotification = async () => {
+      try {
+        // Lazy initialize audio context on first notification
+        if (!audioContextRef.current) {
+          audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+          
+          // Load the audio file
+          try {
+            const response = await fetch('/notification.mp3');
+            const arrayBuffer = await response.arrayBuffer();
+            audioBufferRef.current = await audioContextRef.current.decodeAudioData(arrayBuffer);
+          } catch (error) {
+            console.error('Error loading notification sound:', error);
+            return;
+          }
+        }
+
+        const audioContext = audioContextRef.current;
+        const audioBuffer = audioBufferRef.current;
+        
+        if (!audioBuffer) return;
+        
+        // Resume audio context if it was suspended (required by autoplay policies)
+        if (audioContext.state === 'suspended') {
+          await audioContext.resume();
+        }
+        
+        const source = audioContext.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(audioContext.destination);
+        source.start(0);
+      } catch (error) {
+        console.error('Error playing notification sound:', error);
+      }
+    };
+
+    playNotification();
+  }, [messages.length]);
 
   // Ensure scroll to bottom after new message, especially for media
   useEffect(() => {
