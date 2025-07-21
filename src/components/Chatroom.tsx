@@ -89,7 +89,17 @@ export const Chatroom = () => {
 
   // Initialize socket connection
   useEffect(() => {
-    const url = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000';
+    // Determine backend socket URL for dev/prod
+    let url = '';
+    if (import.meta.env.VITE_SOCKET_URL) {
+      url = import.meta.env.VITE_SOCKET_URL;
+    } else if (import.meta.env.DEV) {
+      url = 'http://localhost:3000';
+    } else {
+      // In production, use same origin as frontend but replace port if needed
+      url = `${window.location.protocol}//${window.location.hostname}`;
+      // If running behind a proxy, you may need to adjust this logic
+    }
     const socketInstance = io(url, {
       autoConnect: true,
       reconnection: true,
