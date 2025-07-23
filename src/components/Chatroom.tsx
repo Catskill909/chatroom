@@ -103,10 +103,27 @@ export const Chatroom = () => {
     const socketInstance = io(url, {
       autoConnect: true,
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: 10, // Increased from 5 to 10
       reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
+      reconnectionDelayMax: 10000, // Increased from 5000 to 10000ms
       randomizationFactor: 0.5,
+      timeout: 60000, // Increased timeout to 60 seconds
+      forceNew: true,
+      transports: ['websocket', 'polling'], // Explicitly enable both transports
+      upgrade: true,
+      rememberUpgrade: true,
+      withCredentials: true,
+      extraHeaders: {
+        'X-Custom-Header': 'chat-client'
+      },
+      // Socket.IO specific options
+      closeOnBeforeunload: false,
+      // These options are valid but might need type assertion
+      ...{
+        // @ts-ignore - These are valid Socket.IO options but not in the TypeScript types
+        pingTimeout: 60000, // 60 seconds
+        pingInterval: 25000, // 25 seconds
+      }
     });
 
     const handleConnect = () => {

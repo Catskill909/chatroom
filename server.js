@@ -46,8 +46,27 @@ const coverStorage = multer.diskStorage({
         cb(null, file.fieldname + '-' + uniqueSuffix + ext);
     }
 });
-const audioUpload = multer({ storage: audioStorage });
-const coverUpload = multer({ storage: coverStorage });
+// Configure multer with file size limits (15MB to be safe)
+const multerOptions = {
+    storage: audioStorage,
+    limits: {
+        fileSize: 15 * 1024 * 1024, // 15MB limit per file
+        files: 1
+    }
+};
+
+const audioUpload = multer(multerOptions);
+const coverUpload = multer({
+    storage: coverStorage,
+    limits: {
+        fileSize: 15 * 1024 * 1024, // 15MB limit per file
+        files: 1
+    }
+});
+
+// Increase the request size limit
+app.use(express.json({ limit: '20mb' }));
+app.use(express.urlencoded({ limit: '20mb', extended: true }));
 
 // Audio upload endpoint
 app.post('/upload/audio', audioUpload.single('audio'), (req, res) => {
@@ -88,7 +107,25 @@ if (process.env.SSL_KEY_PATH && process.env.SSL_CERT_PATH) {
     console.log('HTTP server enabled');
 }
 const io = new Server(server, {
-    cors: { origin: '*' }
+    cors: { 
+        origin: '*',
+        methods: ['GET', 'POST'],
+        credentials: true
+    },
+    maxHttpBufferSize: 20 * 1024 * 1024, // 20MB max payload size
+    pingTimeout: 60000, // Increase ping timeout to 60 seconds
+    pingInterval: 25000, // Send pings every 25 seconds
+    connectTimeout: 60000, // Increase connection timeout to 60 seconds
+    transports: ['websocket', 'polling'], // Enable both transports
+    allowEIO3: true, // Enable Engine.IO v3 compatibility
+    allowUpgrades: true,
+    perMessageDeflate: {
+        threshold: 1024, // Compress messages larger than 1KB
+        zlibDeflateOptions: {
+            level: 9
+        }
+    },
+    httpCompression: true
 });
 
 let users = {};

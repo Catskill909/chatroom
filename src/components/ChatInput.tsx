@@ -62,8 +62,8 @@ export const ChatInput = ({ onSendMessage }: { onSendMessage: (msg: ChatInputMes
         alert('Please select an image file');
         return;
       }
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        alert('Image is too large. Maximum size is 5MB.');
+      if (file.size > 10 * 1024 * 1024) { // 10MB limit
+        alert('Image is too large. Maximum size is 10MB.');
         return;
       }
 

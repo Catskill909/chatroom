@@ -1,0 +1,1193 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Cache-Control"
+      content="no-cache, no-store, must-revalidate"
+    />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <title>Old Skool Sessions Radio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+    <style>
+      body {
+        background-color: #1e1e1e;
+        color: #fff;
+        font-family: "Outfit", sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        margin: 0;
+        padding: 20px;
+      }
+
+      .player-container {
+        position: relative;
+        width: 90%; /* Slightly less than 100% to prevent edge bumping */
+        max-width: 600px;
+        margin: 0 auto;
+        box-sizing: border-box;
+        padding: 0 16px;
+        overflow-x: hidden; /* Prevents horizontal scrolling */
+      }
+
+      /* Media query for very small screens */
+      @media screen and (max-width: 480px) {
+        .player-container {
+          width: 100%; /* Use more screen space on mobile */
+          padding: 0 0px; /* Smaller padding on mobile */
+        }
+      }
+
+      .album-art {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 1;
+        border-radius: 15px;
+        overflow: hidden;
+        background: #000;
+      }
+
+      #visualizer-container {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1;
+        opacity: 1; /* Fully opaque container */
+        background: rgba(0, 0, 0, 0.3); /* Lighter background overlay */
+      }
+
+      #visualizer {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+      }
+
+      .album-art img {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        z-index: 2;
+        opacity: 0.7;
+      }
+
+      #countdown {
+        position: absolute;
+        top: 15px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.7);
+        padding: 4px 12px;
+        border-radius: 15px;
+        font-size: 12px;
+        z-index: 3;
+        margin: 0;
+        max-width: 90%;
+        white-space: nowrap;
+        text-align: center;
+      }
+
+      .song-details {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        bottom: 10px;
+        z-index: 3;
+        padding: 8px 15px;
+        background: rgba(0, 0, 0, 0.7);
+        border-radius: 10px;
+        width: calc(100% - 50px);
+        overflow: hidden;
+        text-align: center;
+      }
+
+      #song-title {
+        font-size: 16px;
+        margin: 0 0 5px 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      #artist-name {
+        font-size: 14px;
+        margin: 0;
+        white-space: nowrap;
+        display: inline-block;
+        animation: scroll-text 20s linear infinite;
+      }
+
+      @keyframes scroll-text {
+        0% {
+          transform: translateX(100%);
+        }
+        100% {
+          transform: translateX(-100%);
+        }
+      }
+
+      #status-message {
+        position: absolute;
+        bottom: 140px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: #ff0000;
+        z-index: 3;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 4px 12px;
+        border-radius: 8px;
+        font-size: 12px;
+        margin: 0;
+        text-align: center;
+        max-width: 80%;
+      }
+
+      #stream-info {
+        position: absolute;
+        top: 44px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 3;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 4px 12px;
+        border-radius: 8px;
+        font-size: 12px;
+        margin: 0;
+        text-align: center;
+        max-width: 80%;
+      }
+
+      #play-pause-button {
+        position: absolute;
+        top: 50%; /* Change from bottom: 25px to top: 50% */
+        left: 50%;
+        transform: translate(-50%, -50%); /* Add Y-axis translation */
+        z-index: 3;
+        background: rgba(0, 0, 0, 0.85);
+        border: none;
+        color: white;
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform 0.2s ease;
+      }
+
+      /* Update the hover state to maintain centering */
+      #play-pause-button:hover {
+        transform: translate(-50%, -50%) scale(1.1); /* Maintain centering while scaling */
+      }
+
+      #play-pause-button i {
+        font-size: 35px;
+      }
+
+      #settings-toggle {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        z-index: 3;
+        background: rgba(0, 0, 0, 0.7);
+        border: none;
+        color: #fff;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+      }
+
+      .audio-controls {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(41, 41, 41, 0.95);
+        backdrop-filter: blur(10px);
+        padding: 20px;
+        border-radius: 15px 15px 0 0;
+        transform: translateY(100%);
+        transition: transform 0.3s ease;
+        z-index: 10;
+      }
+
+      .audio-controls.show {
+        transform: translateY(0);
+      }
+
+      .control-group {
+        margin: 15px 0;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+      }
+
+      .control-label {
+        min-width: 60px;
+        font-size: 14px;
+        color: #bbb;
+      }
+
+      .slider-container {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      input[type="range"] {
+        appearance: none;
+        -webkit-appearance: none;
+        width: 100%;
+        height: 4px;
+        background: #4a4a4a;
+        border-radius: 2px;
+        outline: none;
+      }
+
+      input[type="range"]::-webkit-slider-thumb {
+        appearance: none;
+        -webkit-appearance: none;
+        width: 16px;
+        height: 16px;
+        background: #afa84c;
+        border-radius: 50%;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+
+      .value-display {
+        min-width: 50px;
+        font-size: 14px;
+        color: #bbb;
+        text-align: right;
+      }
+
+      .preset-buttons {
+        display: flex;
+        gap: 8px;
+        margin-top: 15px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      .preset-button {
+        background: #333;
+        border: none;
+        color: #fff;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .preset-button:hover {
+        background: #444;
+      }
+
+      .preset-button.active {
+        background: #4caf50;
+      }
+
+      .buffer-progress {
+        margin-top: 15px;
+        height: 3px;
+        background: #333;
+        border-radius: 1.5px;
+        overflow: hidden;
+      }
+
+      .buffer-bar {
+        height: 100%;
+        background: #4caf50;
+        transition: width 0.3s ease;
+        width: 0;
+      }
+
+      @media (hover: none) {
+        #artist-name {
+          animation-play-state: running !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="player-container">
+      <div class="album-art">
+        <div id="visualizer-container">
+          <canvas id="visualizer"></canvas>
+        </div>
+
+        <img
+          id="album-art"
+          src="https://via.placeholder.com/300x300?text=Album+Art"
+          alt="Album Art"
+        />
+
+        <p id="countdown"></p>
+        <button id="settings-toggle">
+          <i class="fas fa-cog"></i>
+        </button>
+        <p id="status-message"></p>
+        <p id="stream-info"></p>
+        <div class="song-details">
+          <h2 id="song-title">Loading...</h2>
+          <p id="artist-name">Please wait</p>
+        </div>
+
+        <button id="play-pause-button" aria-label="Play" aria-pressed="false">
+          <i class="fas fa-play"></i>
+        </button>
+      </div>
+
+      <div class="audio-controls">
+        <!-- Add this right after the audio-controls div opens -->
+        <div class="control-group">
+          <span class="control-label">Compressor</span>
+          <div class="preset-buttons compressor-presets">
+            <button class="preset-button active" data-compressor="none">
+              None
+            </button>
+            <button class="preset-button" data-compressor="gentle">
+              Gentle
+            </button>
+            <button class="preset-button" data-compressor="modern">
+              Modern
+            </button>
+            <button class="preset-button" data-compressor="aggressive">
+              Aggressive
+            </button>
+          </div>
+        </div>
+        <div class="control-group">
+          <span class="control-label">Volume</span>
+          <div class="slider-container">
+            <input type="range" id="volume" min="0" max="100" value="80" />
+            <span class="value-display" id="volume-value">80%</span>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <span class="control-label">Bass</span>
+          <div class="slider-container">
+            <input type="range" id="bass" min="-12" max="12" value="0" />
+            <span class="value-display" id="bass-value">0 dB</span>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <span class="control-label">Mid</span>
+          <div class="slider-container">
+            <input type="range" id="mid" min="-12" max="12" value="0" />
+            <span class="value-display" id="mid-value">0 dB</span>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <span class="control-label">Treble</span>
+          <div class="slider-container">
+            <input type="range" id="treble" min="-12" max="12" value="0" />
+            <span class="value-display" id="treble-value">0 dB</span>
+          </div>
+        </div>
+
+        <div class="preset-buttons">
+          <button class="preset-button" data-preset="flat">Flat</button>
+          <button class="preset-button" data-preset="bass">Bass Boost</button>
+          <button class="preset-button" data-preset="vocal">Vocal Boost</button>
+          <button class="preset-button" data-preset="dance">Dance</button>
+        </div>
+
+        <div class="buffer-progress">
+          <div class="buffer-bar" id="buffer-bar"></div>
+        </div>
+      </div>
+
+      <audio id="audio-element" crossorigin="anonymous"></audio>
+    </div>
+
+    <script>
+      class StreamReconnector {
+        constructor(audioElement, streamUrl, maxAttempts = 5) {
+          this.audio = audioElement;
+          this.streamUrl = streamUrl;
+          this.maxAttempts = maxAttempts;
+          this.currentAttempt = 0;
+          this.reconnectDelay = 3000; // Start with 3 seconds
+          this.isAttemptingReconnect = false;
+
+          // Create status message element
+          this.statusMessage = document.createElement("div");
+          this.statusMessage.className = "stream-status";
+          this.audio.parentNode.insertBefore(
+            this.statusMessage,
+            this.audio.nextSibling
+          );
+
+          this.initializeEventListeners();
+        }
+
+        initializeEventListeners() {
+          // Listen for errors
+          this.audio.addEventListener("error", () => this.handleError());
+
+          // Listen for interruption
+          this.audio.addEventListener("stalled", () => this.handleError());
+          this.audio.addEventListener("ended", () => this.handleError());
+
+          // Listen for successful reconnection
+          this.audio.addEventListener("playing", () => this.handlePlaying());
+        }
+
+        async handleError() {
+          if (this.isAttemptingReconnect) return;
+
+          this.isAttemptingReconnect = true;
+          this.currentAttempt = 0;
+
+          await this.attemptReconnect();
+        }
+
+        async attemptReconnect() {
+          if (this.currentAttempt >= this.maxAttempts) {
+            this.showStatus(
+              "Stream cannot be reached. Please try again later.",
+              "error"
+            );
+            this.isAttemptingReconnect = false;
+            return;
+          }
+
+          this.currentAttempt++;
+          this.showStatus(
+            `Reconnecting... Attempt ${this.currentAttempt} of ${this.maxAttempts}`,
+            "warning"
+          );
+
+          try {
+            // Force reload the audio source
+            this.audio.src = this.streamUrl + "?t=" + Date.now();
+
+            // Create a promise that resolves on successful load or rejects on error
+            const loadPromise = new Promise((resolve, reject) => {
+              const loadHandler = () => {
+                this.audio.removeEventListener("loadeddata", loadHandler);
+                this.audio.removeEventListener("error", errorHandler);
+                resolve();
+              };
+
+              const errorHandler = () => {
+                this.audio.removeEventListener("loadeddata", loadHandler);
+                this.audio.removeEventListener("error", errorHandler);
+                reject();
+              };
+
+              this.audio.addEventListener("loadeddata", loadHandler);
+              this.audio.addEventListener("error", errorHandler);
+            });
+
+            await loadPromise;
+            await this.audio.play();
+
+            this.handlePlaying();
+          } catch (error) {
+            // Wait before next attempt, with exponential backoff
+            await new Promise((resolve) =>
+              setTimeout(resolve, this.reconnectDelay)
+            );
+            this.reconnectDelay *= 1.5; // Increase delay for next attempt
+
+            await this.attemptReconnect();
+          }
+        }
+
+        handlePlaying() {
+          this.hideStatus();
+          this.isAttemptingReconnect = false;
+          this.reconnectDelay = 3000; // Reset delay
+        }
+
+        showStatus(message, type = "info") {
+          this.statusMessage.textContent = message;
+          this.statusMessage.className = `stream-status ${type}`;
+          this.statusMessage.style.display = "block";
+        }
+
+        hideStatus() {
+          this.statusMessage.style.display = "none";
+        }
+      }
+
+      // CSS for status messages
+      const style = document.createElement("style");
+      style.textContent = `
+  .stream-status {
+    position: absolute;
+    bottom: 160px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 4;
+    background: rgba(0, 0, 0, 0.8);
+    text-align: center;
+    width: auto;
+    max-width: 80%;
+}
+    .stream-status.error {
+        background-color: #ffebee;
+        color: #c62828;
+    }
+    .stream-status.warning {
+        background-color: #fff3e0;
+        color: #ef6c00;
+    }
+    .stream-status.success {
+        background-color: #e8f5e9;
+        color: #2e7d32;
+    }
+    .stream-status.info {
+        background-color: #e3f2fd;
+        color: #1565c0;
+    }
+`;
+      document.head.appendChild(style);
+      (() => {
+        // Audio Context and Nodes
+        let audioContext = null;
+        let source = null;
+        let gainNode = null;
+        let analyser = null;
+        let equalizer = null;
+        let compressor = null;
+
+        // UI Elements
+        const apiEndpoint = "https://supersoul.site/api/nowplaying";
+        const playPauseButton = document.getElementById("play-pause-button");
+        const songTitle = document.getElementById("song-title");
+        const artistName = document.getElementById("artist-name");
+        const albumArt = document.getElementById("album-art");
+        const statusMessage = document.getElementById("status-message");
+        const countdownElement = document.getElementById("countdown");
+        const streamInfo = document.getElementById("stream-info");
+        const audio = document.getElementById("audio-element");
+        const bufferBar = document.getElementById("buffer-bar");
+
+        // Audio Controls
+        const volumeSlider = document.getElementById("volume");
+        const bassSlider = document.getElementById("bass");
+        const midSlider = document.getElementById("mid");
+        const trebleSlider = document.getElementById("treble");
+        const presetButtons = document.querySelectorAll(".preset-button");
+
+        // Value Displays
+        const volumeValue = document.getElementById("volume-value");
+        const bassValue = document.getElementById("bass-value");
+        const midValue = document.getElementById("mid-value");
+        const trebleValue = document.getElementById("treble-value");
+
+        // Visualizer
+        const canvas = document.getElementById("visualizer");
+        const canvasCtx = canvas.getContext("2d");
+
+        let currentStation = 1;
+        let showActive = false;
+        let isPlaying = false;
+
+        const streamUrls = {
+          1: "https://supersoul.site:8000/OSS-320",
+          15: "https://supersoul.site:8010/OSSlive",
+        };
+
+        // Add this after your variable declarations
+        const reconnector = new StreamReconnector(
+          audio,
+          streamUrls[currentStation],
+          5
+        );
+
+        // EQ Presets
+        const eqPresets = {
+          flat: { bass: 0, mid: 0, treble: 0 },
+          bass: { bass: 6, mid: -2, treble: -3 },
+          vocal: { bass: -3, mid: 4, treble: 2 },
+          dance: { bass: 4, mid: 2, treble: 3 },
+        };
+        // Add this after the eqPresets definition
+        const compressorPresets = {
+          none: {
+            threshold: -100,
+            knee: 0,
+            ratio: 1,
+            attack: 0.003,
+            release: 0.25,
+          },
+          gentle: {
+            threshold: -24,
+            knee: 30,
+            ratio: 3,
+            attack: 0.003,
+            release: 0.25,
+          },
+          modern: {
+            threshold: -22,
+            knee: 14,
+            ratio: 7,
+            attack: 0.004,
+            release: 0.125,
+          },
+          aggressive: {
+            threshold: -16,
+            knee: 8,
+            ratio: 12,
+            attack: 0.002,
+            release: 0.1,
+          },
+        };
+        // Initialize Audio Context and Processing Chain
+        function initializeAudio() {
+          if (audioContext) return;
+
+          try {
+            audioContext = new (window.AudioContext ||
+              window.webkitAudioContext)();
+            source = audioContext.createMediaElementSource(audio);
+
+            // Create Analyzer
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = 2048;
+            analyser.smoothingTimeConstant = 0.85;
+
+            // Create Gain Node
+            gainNode = audioContext.createGain();
+            gainNode.gain.value = volumeSlider.value / 100;
+
+            // Create Equalizer
+            equalizer = {
+              bass: createFilter(60, "lowshelf"),
+              mid: createFilter(1000, "peaking"),
+              treble: createFilter(8000, "highshelf"),
+            };
+
+            // Initialize compressor with "none" preset
+            compressor = audioContext.createDynamicsCompressor();
+            const nonePreset = compressorPresets.none;
+            compressor.threshold.value = nonePreset.threshold;
+            compressor.knee.value = nonePreset.knee;
+            compressor.ratio.value = nonePreset.ratio;
+            compressor.attack.value = nonePreset.attack;
+            compressor.release.value = nonePreset.release;
+
+            // Connect Audio Chain
+            source
+              .connect(equalizer.bass)
+              .connect(equalizer.mid)
+              .connect(equalizer.treble)
+              .connect(gainNode)
+              .connect(compressor)
+              .connect(analyser)
+              .connect(audioContext.destination);
+
+            // Initialize Visualizer
+            initializeVisualizer();
+
+            // Set up streaming optimizations
+            audio.preload = "auto";
+            audio.buffered.length && updateBufferProgress();
+
+            // Request audio focus for background playback
+            if ("audioSession" in navigator) {
+              try {
+                navigator.audioSession.type = "playback";
+              } catch (e) {
+                console.warn("Audio session type not supported:", e);
+              }
+            }
+          } catch (error) {
+            console.error("Web Audio API initialization failed:", error);
+            statusMessage.textContent =
+              "Audio initialization failed. Please reload the page.";
+          }
+        }
+
+        // Create Audio Filter
+        function createFilter(frequency, type) {
+          const filter = audioContext.createBiquadFilter();
+          filter.type = type;
+          filter.frequency.value = frequency;
+          filter.Q.value = 1;
+          filter.gain.value = 0;
+          return filter;
+        }
+
+        // Metadata Fetching
+        async function fetchNowPlaying() {
+          try {
+            const response = await fetch(apiEndpoint);
+            if (!response.ok)
+              throw new Error(`HTTP error! status: ${response.status}`);
+            const data = await response.json();
+            updatePlayerInfo(data);
+          } catch (error) {
+            console.error("Error fetching now playing info:", error);
+            statusMessage.textContent =
+              "Unable to fetch now playing info. Retrying...";
+          }
+        }
+
+        function updatePlayerInfo(data) {
+          const stationData = data.find(
+            (station) => station.station.id === currentStation
+          );
+          if (!stationData) return;
+
+          const nowPlaying = stationData.now_playing;
+          const song = nowPlaying.song;
+
+          songTitle.textContent = song.title || "Unknown Title";
+          artistName.textContent = song.artist || "Unknown Artist";
+          albumArt.src =
+            song.art || "https://via.placeholder.com/300x300?text=No+Art";
+
+          updateAudioSource();
+          updateMediaSession(song);
+
+          streamInfo.textContent = `Current Stream: ${
+            currentStation === 1 ? "OSS Radio" : "OSS Live"
+          }`;
+        }
+
+        function updateAudioSource() {
+          if (audio.src !== streamUrls[currentStation]) {
+            const wasPlaying = !audio.paused;
+            audio.src = streamUrls[currentStation];
+            if (wasPlaying) {
+              const playPromise = audio.play();
+              if (playPromise !== undefined) {
+                playPromise.catch((e) =>
+                  console.error("Error playing audio:", e)
+                );
+              }
+            }
+          }
+        }
+
+        // Media Session API
+        function updateMediaSession(song) {
+          if ("mediaSession" in navigator) {
+            navigator.mediaSession.metadata = new MediaMetadata({
+              title: song.title || "Unknown Title",
+              artist: song.artist || "Unknown Artist",
+              artwork: [
+                { src: albumArt.src, sizes: "300x300", type: "image/png" },
+              ],
+            });
+
+            navigator.mediaSession.setActionHandler("play", async () => {
+              try {
+                if (!audioContext || audioContext.state === "closed") {
+                  initializeAudio();
+                }
+                if (audioContext.state === "suspended") {
+                  await audioContext.resume();
+                }
+                await audio.play();
+                isPlaying = true;
+                localStorage.setItem("audioPlayerState", "playing");
+              } catch (e) {
+                console.error("Error handling play action:", e);
+              }
+            });
+
+            navigator.mediaSession.setActionHandler("pause", () => {
+              audio.pause();
+              isPlaying = false;
+              localStorage.setItem("audioPlayerState", "paused");
+            });
+          }
+        }
+
+        // Audio Element Event Listeners
+        audio.addEventListener("play", () => {
+          playPauseButton
+            .querySelector("i")
+            .classList.replace("fa-play", "fa-pause");
+          playPauseButton.setAttribute("aria-pressed", true);
+          isPlaying = true;
+          localStorage.setItem("audioPlayerState", "playing");
+        });
+
+        audio.addEventListener("pause", () => {
+          playPauseButton
+            .querySelector("i")
+            .classList.replace("fa-pause", "fa-play");
+          playPauseButton.setAttribute("aria-pressed", false);
+          isPlaying = false;
+          localStorage.setItem("audioPlayerState", "paused");
+        });
+
+        // Show Time Management
+        function getNextShowTimeInEST() {
+          const now = new Date();
+          const nowEST = new Date(
+            now.toLocaleString("en-US", { timeZone: "America/New_York" })
+          );
+          const nextShow = new Date(nowEST);
+          nextShow.setDate(
+            nextShow.getDate() + ((6 - nowEST.getDay() + 7) % 7)
+          );
+          nextShow.setHours(20, 0, 0, 0);
+
+          if (nowEST > nextShow) {
+            nextShow.setDate(nextShow.getDate() + 7);
+          }
+          return nextShow;
+        }
+
+        function isShowTime() {
+          const now = new Date();
+          const estTime = new Date(
+            now.toLocaleString("en-US", { timeZone: "America/New_York" })
+          );
+          const dayOfWeek = estTime.getDay();
+          const hours = estTime.getHours();
+          const minutes = estTime.getMinutes();
+
+          return (
+            (dayOfWeek === 6 && hours >= 20) ||
+            (dayOfWeek === 0 && hours === 0 && minutes === 0)
+          );
+        }
+
+        function updateCountdown() {
+          const now = new Date();
+          const nextShowTimeEST = getNextShowTimeInEST();
+
+          if (isShowTime()) {
+            showActive = true;
+            switchToOSSLive();
+            countdownElement.textContent = "Live Now!";
+          } else {
+            showActive = false;
+            switchToOldSkoolSessions();
+            const timeUntilShow = nextShowTimeEST - now;
+            const totalSeconds = Math.floor(timeUntilShow / 1000);
+            const days = Math.floor(totalSeconds / (60 * 60 * 24));
+            const hours = Math.floor((totalSeconds / (60 * 60)) % 24);
+            const minutes = Math.floor((totalSeconds / 60) % 60);
+            const seconds = totalSeconds % 60;
+            countdownElement.textContent = `Live show in: ${days}d ${hours}h ${minutes}m ${seconds}s`;
+          }
+        }
+
+        function switchToOSSLive() {
+          currentStation = 15;
+          reconnector.streamUrl = streamUrls[currentStation]; // Add this new line
+          updateAudioSource();
+          fetchNowPlaying();
+        }
+
+        function switchToOldSkoolSessions() {
+          currentStation = 1;
+          reconnector.streamUrl = streamUrls[currentStation]; // Add this new line
+          updateAudioSource();
+          fetchNowPlaying();
+        }
+
+        // Audio Visualization
+        function initializeVisualizer() {
+          function resizeCanvas() {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+          }
+
+          resizeCanvas();
+          window.addEventListener("resize", resizeCanvas);
+
+          requestAnimationFrame(drawVisualization);
+        }
+
+        function drawVisualization() {
+          if (!analyser) return;
+
+          const bufferLength = analyser.frequencyBinCount;
+          const dataArray = new Uint8Array(bufferLength);
+          analyser.getByteFrequencyData(dataArray);
+
+          const width = canvas.width;
+          const height = canvas.height;
+          const barWidth = (width / bufferLength) * 2.5;
+
+          canvasCtx.fillStyle = "rgba(0, 0, 0, 0.3)";
+          canvasCtx.fillRect(0, 0, width, height);
+
+          let x = 0;
+          for (let i = 0; i < bufferLength; i++) {
+            const barHeight = (dataArray[i] / 255) * height;
+            const hue = (i / bufferLength) * 360;
+            canvasCtx.fillStyle = `hsla(${hue}, 100%, 60%, 0.9)`;
+            canvasCtx.fillRect(x, height - barHeight, barWidth, barHeight);
+            x += barWidth + 1;
+          }
+
+          requestAnimationFrame(drawVisualization);
+        }
+
+        // Audio Controls Event Listeners
+        volumeSlider.addEventListener("input", (e) => {
+          const value = e.target.value;
+          if (gainNode) gainNode.gain.value = value / 100;
+          volumeValue.textContent = `${value}%`;
+        });
+
+        bassSlider.addEventListener("input", (e) => {
+          if (equalizer?.bass)
+            equalizer.bass.gain.value = parseFloat(e.target.value);
+          bassValue.textContent = `${e.target.value} dB`;
+        });
+
+        midSlider.addEventListener("input", (e) => {
+          if (equalizer?.mid)
+            equalizer.mid.gain.value = parseFloat(e.target.value);
+          midValue.textContent = `${e.target.value} dB`;
+        });
+
+        trebleSlider.addEventListener("input", (e) => {
+          if (equalizer?.treble)
+            equalizer.treble.gain.value = parseFloat(e.target.value);
+          trebleValue.textContent = `${e.target.value} dB`;
+        });
+
+        // EQ Presets
+        presetButtons.forEach((button) => {
+          button.addEventListener("click", () => {
+            const preset = eqPresets[button.dataset.preset];
+            if (!preset) return;
+
+            bassSlider.value = preset.bass;
+            midSlider.value = preset.mid;
+            trebleSlider.value = preset.treble;
+
+            if (equalizer) {
+              equalizer.bass.gain.value = preset.bass;
+              equalizer.mid.gain.value = preset.mid;
+              equalizer.treble.gain.value = preset.treble;
+            }
+
+            bassValue.textContent = `${preset.bass} dB`;
+            midValue.textContent = `${preset.mid} dB`;
+            trebleValue.textContent = `${preset.treble} dB`;
+
+            presetButtons.forEach((btn) => btn.classList.remove("active"));
+            button.classList.add("active");
+          });
+        });
+
+        // Play/Pause Button Handler
+        playPauseButton.addEventListener("click", async () => {
+          if (!audioContext || audioContext.state === "closed") {
+            initializeAudio();
+          }
+
+          if (audio.paused) {
+            try {
+              if (audioContext.state === "suspended") {
+                await audioContext.resume();
+              }
+              await audio.play();
+              isPlaying = true;
+            } catch (e) {
+              console.error("Error playing audio:", e);
+              statusMessage.textContent = "Error playing audio.";
+            }
+          } else {
+            audio.pause();
+            isPlaying = false;
+          }
+        });
+
+        // Settings toggle
+        document
+          .getElementById("settings-toggle")
+          .addEventListener("click", () => {
+            document.querySelector(".audio-controls").classList.toggle("show");
+          });
+
+        // Buffer Progress
+        function updateBufferProgress() {
+          if (audio.buffered.length > 0) {
+            const bufferedEnd = audio.buffered.end(audio.buffered.length - 1);
+            const duration = audio.duration;
+            const progress = (bufferedEnd / duration) * 100;
+            bufferBar.style.width = `${Math.min(100, progress)}%`;
+          }
+        }
+
+        // Add compressor preset button handling
+        document
+          .querySelectorAll(".compressor-presets .preset-button")
+          .forEach((button) => {
+            button.addEventListener("click", () => {
+              const presetName = button.dataset.compressor;
+              const preset = compressorPresets[presetName];
+
+              if (!preset || !compressor) return;
+
+              // Apply the preset values using setValueAtTime
+              compressor.threshold.setValueAtTime(
+                preset.threshold,
+                audioContext.currentTime
+              );
+              compressor.knee.setValueAtTime(
+                preset.knee,
+                audioContext.currentTime
+              );
+              compressor.ratio.setValueAtTime(
+                preset.ratio,
+                audioContext.currentTime
+              );
+              compressor.attack.setValueAtTime(
+                preset.attack,
+                audioContext.currentTime
+              );
+              compressor.release.setValueAtTime(
+                preset.release,
+                audioContext.currentTime
+              );
+
+              // Update UI
+              document
+                .querySelectorAll(".compressor-presets .preset-button")
+                .forEach((btn) => btn.classList.remove("active"));
+              button.classList.add("active");
+            });
+          });
+
+        // Background Playback Handlers
+        document.addEventListener("visibilitychange", async () => {
+          if (document.visibilityState === "visible") {
+            if (!audioContext || audioContext.state === "closed") {
+              initializeAudio();
+            } else if (audioContext.state === "suspended" && isPlaying) {
+              try {
+                await audioContext.resume();
+              } catch (e) {
+                console.error("Error resuming audio context:", e);
+              }
+            }
+            if (audio.paused && isPlaying) {
+              try {
+                await audio.play();
+              } catch (e) {
+                console.error("Error playing audio:", e);
+              }
+            }
+            initializeVisualizer();
+            fetchNowPlaying();
+          }
+        });
+
+        // Keep audio alive in background
+        window.addEventListener("blur", () => {
+          if (audioContext && isPlaying) {
+            localStorage.setItem("audioPlayerState", "playing");
+
+            // Create and play a silent buffer to keep the context active
+            const silentBuffer = audioContext.createBuffer(1, 44100, 44100);
+            const bufferSource = audioContext.createBufferSource();
+            bufferSource.buffer = silentBuffer;
+            bufferSource.connect(audioContext.destination);
+            bufferSource.start();
+            bufferSource.stop(audioContext.currentTime + 0.1);
+          }
+        });
+
+        window.addEventListener("focus", async () => {
+          if (localStorage.getItem("audioPlayerState") === "playing") {
+            if (audioContext?.state === "suspended") {
+              try {
+                await audioContext.resume();
+              } catch (e) {
+                console.error("Error resuming audio context:", e);
+              }
+            }
+            if (audio.paused) {
+              try {
+                await audio.play();
+              } catch (e) {
+                console.error("Error resuming audio:", e);
+              }
+            }
+          }
+        });
+
+        // Page Lifecycle Events
+        document.addEventListener("freeze", () => {
+          if (isPlaying) {
+            localStorage.setItem("audioPlayerState", "playing");
+          }
+        });
+
+        document.addEventListener("resume", async () => {
+          if (localStorage.getItem("audioPlayerState") === "playing") {
+            try {
+              if (audioContext?.state === "suspended") {
+                await audioContext.resume();
+              }
+              if (audio.paused) {
+                await audio.play();
+              }
+            } catch (e) {
+              console.error("Error resuming after freeze:", e);
+            }
+          }
+        });
+
+        // Online/Offline Handling
+        window.addEventListener("online", () => {
+          statusMessage.textContent = "";
+          fetchNowPlaying();
+        });
+
+        window.addEventListener("offline", () => {
+          statusMessage.textContent =
+            "You are offline. Please check your internet connection.";
+        });
+
+        // Initial setup and intervals
+        fetchNowPlaying();
+        setInterval(fetchNowPlaying, 30000);
+        updateCountdown();
+        setInterval(updateCountdown, 1000);
+      })();
+    </script>
+    <script>
+      window.onload = function () {
+        // Force reload on page load
+        if (!window.location.search.includes("v=")) {
+          window.location.href = window.location.href + "?v=" + Date.now();
+        }
+      };
+    </script>
+  </body>
+</html>

@@ -1,3 +1,5 @@
+import React from "react";
+import OSSPlayer from "./OSSPlayer";
 import { UserCard } from './UserCard';
 
 export interface ChatUser {
@@ -33,6 +35,12 @@ export const UsersList = ({ users, currentUser, onSettingsClick }: UsersListProp
             />
           ))}
         </div>
+      </div>
+
+
+      {/* Old Skool Sessions Player (React version) */}
+      <div className="mt-2">
+        <OSSPlayer />
       </div>
     </div>
   );
