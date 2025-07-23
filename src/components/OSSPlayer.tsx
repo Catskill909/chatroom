@@ -2,10 +2,17 @@ import React, { useEffect, useRef, useState } from "react";
 import '@fortawesome/fontawesome-free/css/all.min.css';
 
 // Stream URLs from original player
-const STREAMS = {
-  main: "https://supersoul.site:8000/OSS-320",
-  live: "https://supersoul.site:8010/OSSlive",
-};
+const isLocal = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+
+const STREAMS = isLocal
+  ? {
+      main: "https://supersoul.site:8000/OSS-320",
+      live: "https://supersoul.site:8010/OSSlive",
+    }
+  : {
+      main: "/audio/proxy.php?url=https://supersoul.site:8000/OSS-320",
+      live: "/audio/proxy.php?url=https://supersoul.site:8010/OSSlive",
+    };
 const API_URL = "https://supersoul.site/api/nowplaying";
 
 function getNextShowTimeInEST() {
