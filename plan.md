@@ -46,7 +46,9 @@ Create a robust, classic real-time chatroom where:
 3. **Media Handling**
    - Avatar upload and display using base64
    - Image sharing in chat messages
-   - Audio upload and playback with cover art and metadata (no base64 conversion)
+   - Audio upload and streaming playback with cover art and metadata (no base64 conversion)
+   - Smooth audio player with progress bar and time tracking
+   - Rich link previews for URLs with title, description, and thumbnail
    - Automatic image resizing (max 800px)
    - 10MB file size limit for audio, 5MB for images
 
@@ -129,7 +131,8 @@ Create a robust, classic real-time chatroom where:
 
 ### Next Up
 - [ ] **Message Expiration**: Messages automatically expire after a configurable time period
-- [ ] **Clickable Links**: URLs in messages are automatically converted to clickable links that open in a new tab
+- [x] **Clickable Links**: URLs in messages are automatically converted to clickable links that open in a new tab
+- [x] **Link Previews**: Rich previews with title, description, and thumbnail for shared URLs
 
 1. **Rich Media Support**
    - Image, video, and file sharing in chat

@@ -6,15 +6,23 @@ import { Server } from 'socket.io';
 import multer from 'multer';
 import path from 'path';
 import cors from 'cors';
+import { getLinkPreview } from 'link-preview-js';
 
 const app = express();
+
+// Get port from environment variable or use 3000 as default
+const PORT = process.env.PORT || 3000;
 
 // Enable CORS for all HTTP requests
 app.use(cors({
     origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
 }));
+
+// Handle preflight requests
+app.options('*', cors());
 
 // Initialize __dirname for ES modules
 import { fileURLToPath } from 'url';
@@ -95,6 +103,40 @@ app.use('/uploads/cover', express.static(COVER_UPLOAD_DIR));
 
 // Serve frontend static files from /dist
 app.use(express.static(path.join(__dirname, 'dist')));
+
+// Add link preview endpoint
+app.get('/api/link-preview', async (req, res) => {
+    const { url } = req.query;
+    
+    if (!url) {
+        return res.status(400).json({ error: 'URL parameter is required' });
+    }
+
+    try {
+        const preview = await getLinkPreview(url, {
+            timeout: 5000,
+            followRedirects: 'follow',
+            handleRedirects: (baseURL, forwardedURL) => {
+                console.log(`[Link Preview] Redirecting from ${baseURL} to ${forwardedURL}`);
+                return true; // Allow all redirects
+            },
+            headers: {
+                'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'accept-language': 'en-US,en;q=0.5',
+            },
+        });
+        
+        console.log(`[Link Preview] Successfully fetched preview for ${url}`);
+        res.json(preview);
+    } catch (error) {
+        console.error(`[Link Preview] Error fetching preview for ${url}:`, error);
+        res.status(500).json({ 
+            error: 'Failed to fetch link preview',
+            details: error.message 
+        });
+    }
+});
 
 let server;
 if (process.env.SSL_KEY_PATH && process.env.SSL_CERT_PATH) {
@@ -237,7 +279,9 @@ app.get('*', (req, res, next) => {
     res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
-const PORT = process.env.PORT || 3000;
+// Use the PORT variable defined at the top of the file
 server.listen(PORT, () => {
-    console.log(`WebSocket server running on port ${PORT}`);
+    console.log(`Server is running on port ${PORT}`);
+    console.log(`WebSocket server is running`);
+    console.log(`API endpoint available at: http://localhost:${PORT}/api/link-preview`);
 });

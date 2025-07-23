@@ -1,12 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { User } from "lucide-react";
+import { User, ExternalLink } from "lucide-react";
 import AudioPlayer, { RHAP_UI } from "react-h5-audio-player";
 import "react-h5-audio-player/lib/styles.css";
 import "@/components/audio-player-dark.css";
 import "@/components/audio-player-fullwidth.css";
 import { MagnifierIcon } from "@/components/ui/MagnifierIcon";
 import { ImageModal } from "@/components/ui/ImageModal";
+import { LinkPreview } from "./LinkPreview";
 
 export interface Message {
   id: string;
@@ -161,13 +162,53 @@ export const ChatMessage = ({ message, currentUser }: ChatMessageProps) => {
   </div>
 )}
 
-          {/* Text Message Rendering */}
+          {/* Text Message Rendering with Link Detection */}
           {message.content && (
-            <p
-              className="text-sm leading-relaxed break-words text-white"
-            >
-              {message.content}
-            </p>
+            <div className="space-y-2">
+              <p className="text-sm leading-relaxed break-words text-white whitespace-pre-wrap">
+                {message.content.split(/(https?:\/\/[^\s]+)/g).map((part, i) => {
+                  // Check if the part is a URL
+                  if (part.match(/^https?:\/\//)) {
+                    try {
+                      const url = new URL(part);
+                      return (
+                        <span key={i} className="inline-flex items-center">
+                          <a
+                            href={part}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-400 hover:underline inline-flex items-center"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {url.hostname.replace('www.', '')}
+                            <ExternalLink className="w-3 h-3 ml-1" />
+                          </a>
+                        </span>
+                      );
+                    } catch (e) {
+                      return part;
+                    }
+                  }
+                  return part;
+                })}
+              </p>
+              
+              {/* Link Previews */}
+              {(() => {
+                const urls = message.content.match(/https?:\/\/[^\s]+/g) || [];
+                // Only show preview for the first URL in the message to avoid clutter
+                const firstValidUrl = urls.find(url => {
+                  try {
+                    new URL(url);
+                    return true;
+                  } catch {
+                    return false;
+                  }
+                });
+                
+                return firstValidUrl ? <LinkPreview url={firstValidUrl} /> : null;
+              })()}
+            </div>
           )}
         </div>
       </div>
