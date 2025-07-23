@@ -248,17 +248,17 @@ export default function OSSPlayer() {
           }
         `}</style>
       </div>
+      {/* Main OSS audio element - controls and UI handled by custom player above */}
       <audio
         ref={audioRef}
         id="audio-element"
         src={STREAMS[currentStation]}
-        controls
         crossOrigin="anonymous"
         preload="auto"
-        style={{ width: '100%', marginTop: 8 }}
+        style={{ display: 'none' }}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
-        onVolumeChange={(e) => setVolume(e.target.volume)}
+        onVolumeChange={e => setVolume((e.target as HTMLAudioElement).volume)}
       />
 
       <div style={{ marginTop: 12, display: "flex", alignItems: "center" }}>
