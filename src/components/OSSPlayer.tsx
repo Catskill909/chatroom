@@ -10,8 +10,8 @@ const STREAMS = isLocal
       live: "https://supersoul.site:8010/OSSlive",
     }
   : {
-      main: "/audio/proxy.php?url=https://supersoul.site:8000/OSS-320",
-      live: "/audio/proxy.php?url=https://supersoul.site:8010/OSSlive",
+      main: "/audio/proxy.php?stream=OSS-320",
+      live: "/audio/proxy.php?stream=OSSlive",
     };
 const API_URL = "https://supersoul.site/api/nowplaying";
 
