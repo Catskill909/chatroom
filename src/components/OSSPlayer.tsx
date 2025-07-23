@@ -204,7 +204,7 @@ export default function OSSPlayer() {
             <span style={{
               display: 'inline-block',
               minWidth: '100%',
-              animation: 'scroll-text 12s linear infinite',
+              animation: 'scroll-text 18s linear infinite',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
