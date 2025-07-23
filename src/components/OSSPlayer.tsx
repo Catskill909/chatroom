@@ -255,11 +255,17 @@ export default function OSSPlayer() {
       </div>
       <audio
         ref={audioRef}
+        id="audio-element"
         src={STREAMS[currentStation]}
+        controls
         crossOrigin="anonymous"
-        style={{ display: "none" }}
         preload="auto"
+        style={{ width: '100%', marginTop: 8 }}
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+        onVolumeChange={handleVolumeChange}
       />
+
       <div style={{ marginTop: 12, display: "flex", alignItems: "center" }}>
         <span style={{ fontSize: 13, marginRight: 8 }}>Volume</span>
         <input
