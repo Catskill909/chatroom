@@ -4,15 +4,10 @@ import '@fortawesome/fontawesome-free/css/all.min.css';
 // Stream URLs from original player
 const isLocal = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
 
-const STREAMS = isLocal
-  ? {
-      main: "https://supersoul.site:8000/OSS-320",
-      live: "https://supersoul.site:8010/OSSlive",
-    }
-  : {
-      main: "/audio/proxy.php?stream=OSS-320",
-      live: "/audio/proxy.php?stream=OSSlive",
-    };
+const STREAMS = {
+  main: "https://supersoul.site:8000/OSS-320",
+  live: "https://supersoul.site:8010/OSSlive",
+};
 const API_URL = "https://supersoul.site/api/nowplaying";
 
 function getNextShowTimeInEST() {
@@ -263,7 +258,7 @@ export default function OSSPlayer() {
         style={{ width: '100%', marginTop: 8 }}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
-        onVolumeChange={handleVolumeChange}
+        onVolumeChange={(e) => setVolume(e.target.volume)}
       />
 
       <div style={{ marginTop: 12, display: "flex", alignItems: "center" }}>
