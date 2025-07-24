@@ -165,11 +165,26 @@ export default function OSSPlayer() {
     };
   }, []);
 
-  // Handle volume
+  // Initialize volume and handle changes
   useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = volume;
-    }
+    const audio = audioRef.current;
+    if (!audio) return;
+    
+    // Set initial volume immediately
+    audio.volume = volume;
+    
+    // Handle volume changes from other sources (e.g., system volume)
+    const handleVolumeChange = () => {
+      if (audio.volume !== volume) {
+        setVolume(audio.volume);
+      }
+    };
+    
+    audio.addEventListener('volumechange', handleVolumeChange);
+    
+    return () => {
+      audio.removeEventListener('volumechange', handleVolumeChange);
+    };
   }, [volume]);
 
   // Play/pause handler
@@ -271,18 +286,88 @@ export default function OSSPlayer() {
       />
 
       <div style={{ marginTop: 12, display: "flex", alignItems: "center" }}>
-        <span style={{ fontSize: 13, marginRight: 8 }}>Volume</span>
-        <input
-          type="range"
-          min={0}
-          max={1}
-          step={0.01}
-          value={volume}
-          onChange={e => setVolume(Number(e.target.value))}
-          style={{ flex: 1 }}
-        />
-        <span style={{ fontSize: 13, marginLeft: 8 }}>{Math.round(volume * 100)}%</span>
+        <span style={{ fontSize: 13, marginRight: 12, minWidth: 50 }}>Volume</span>
+        <div style={{ flex: 1, position: 'relative' }}>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={volume}
+            onChange={e => setVolume(Number(e.target.value))}
+            style={{
+              width: '100%',
+              WebkitAppearance: 'none',
+              height: 4,
+              background: '#444',
+              borderRadius: 2,
+              outline: 'none',
+              position: 'relative',
+              zIndex: 1,
+              margin: 0,
+              padding: 0,
+            } as React.CSSProperties}
+          />
+          <div style={{
+            position: 'absolute',
+            top: '50%',
+            left: 0,
+            height: 4,
+            width: `${volume * 100}%`,
+            backgroundColor: '#fff',
+            borderRadius: 2,
+            pointerEvents: 'none',
+            zIndex: 2,
+          }} />
+        </div>
+        <span style={{ 
+          fontSize: 13, 
+          marginLeft: 12, 
+          minWidth: 32, 
+          textAlign: 'right',
+          fontVariantNumeric: 'tabular-nums'
+        }}>
+          {Math.round(volume * 100)}%
+        </span>
       </div>
+      <style>{`
+        /* Webkit (Chrome, Safari) */
+        input[type="range"]::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          background: #fff;
+          cursor: pointer;
+          margin-top: -4px;
+          position: relative;
+          z-index: 3;
+        }
+        
+        /* Firefox */
+        input[type="range"]::-moz-range-thumb {
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          background: #fff;
+          cursor: pointer;
+          border: none;
+          position: relative;
+          z-index: 3;
+        }
+        
+        /* IE/Edge */
+        input[type="range"]::-ms-thumb {
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          background: #fff;
+          cursor: pointer;
+          border: none;
+          position: relative;
+          z-index: 3;
+        }
+      `}</style>
       {status && <p style={{ color: "#ff0000", fontSize: 12, margin: 0, marginTop: 6 }}>{status}</p>}
     </div>
   );
