@@ -37,6 +37,7 @@ The chat supports audio and image sharing with the following features:
 - 📈 **Waveform Visualization**: Visual representation of audio waveform
 - 🔄 **Live Streaming**: Supports live audio streams with adaptive bitrate
 - 📱 **Mobile Optimized**: Touch-friendly controls for all devices
+- 📊 **Real Upload Progress**: Visual progress bar shows actual upload status for audio files (0-100%)
 
 **General Media Features:**
 - Click the audio or image icon in the chat input to select a file
