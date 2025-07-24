@@ -39,6 +39,19 @@ if (!array_key_exists($stream, $streamUrls)) {
 // Get the stream URL
 $url = $streamUrls[$stream];
 
+// --- BEGIN: Large file/stream support ---
+// Allow unlimited execution time for large streams
+set_time_limit(0);
+// Disable PHP output buffering
+if (function_exists('apache_setenv')) {
+    @apache_setenv('no-gzip', 1);
+}
+ini_set('zlib.output_compression', 'Off');
+ini_set('output_buffering', 'Off');
+ini_set('implicit_flush', 1);
+ob_implicit_flush(1);
+// --- END: Large file/stream support ---
+
 // Initialize cURL
 $ch = curl_init();
 curl_setopt($ch, CURLOPT_URL, $url);

@@ -4,9 +4,16 @@ import '@fortawesome/fontawesome-free/css/all.min.css';
 // Stream URLs from original player
 const isLocal = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
 
+// Utility to detect Safari (not Chrome or Android)
+function isSafari() {
+  if (typeof window === 'undefined') return false;
+  const ua = window.navigator.userAgent;
+  return /Safari/.test(ua) && !/Chrome|Chromium|Android/.test(ua);
+}
+
 const STREAMS = {
-  main: "https://supersoul.site:8000/OSS-320",
-  live: "https://supersoul.site:8010/OSSlive",
+  main: isSafari() ? "https://supersoul.site:8000/OSS-320?_ic2=1" : "https://supersoul.site:8000/OSS-320",
+  live: isSafari() ? "https://supersoul.site:8010/OSSlive?_ic2=1" : "https://supersoul.site:8010/OSSlive",
 };
 const API_URL = "https://supersoul.site/api/nowplaying";
 
@@ -250,12 +257,13 @@ export default function OSSPlayer() {
       </div>
       {/* Main OSS audio element - controls and UI handled by custom player above */}
       {/* Main OSS audio element - controls and UI handled by custom player above */}
+      {/* Main OSS audio element - Safari gets ?_ic2=1 parameter to prevent redirect */}
       <audio
         ref={audioRef}
         id="audio-element"
         src={STREAMS[currentStation]}
-        crossOrigin="anonymous"
-        preload="auto"
+        crossOrigin={isSafari() ? undefined : "anonymous"}
+        preload="metadata"
         style={{ display: 'none' }}
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}

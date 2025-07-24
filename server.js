@@ -58,7 +58,7 @@ const coverStorage = multer.diskStorage({
 const multerOptions = {
     storage: audioStorage,
     limits: {
-        fileSize: 15 * 1024 * 1024, // 15MB limit per file
+        fileSize: 300 * 1024 * 1024, // 300MB limit per file
         files: 1
     }
 };
@@ -67,14 +67,14 @@ const audioUpload = multer(multerOptions);
 const coverUpload = multer({
     storage: coverStorage,
     limits: {
-        fileSize: 15 * 1024 * 1024, // 15MB limit per file
+        fileSize: 300 * 1024 * 1024, // 300MB limit per file
         files: 1
     }
 });
 
 // Increase the request size limit
-app.use(express.json({ limit: '20mb' }));
-app.use(express.urlencoded({ limit: '20mb', extended: true }));
+app.use(express.json({ limit: '350mb' }));
+app.use(express.urlencoded({ limit: '350mb', extended: true }));
 
 // Audio upload endpoint
 app.post('/upload/audio', audioUpload.single('audio'), (req, res) => {
@@ -103,6 +103,27 @@ app.use('/uploads/cover', express.static(COVER_UPLOAD_DIR));
 
 // Serve frontend static files from /dist
 app.use(express.static(path.join(__dirname, 'dist')));
+
+// Proxy audio stream for Safari CORS/redirect bug workaround
+import fetch from 'node-fetch';
+
+app.get('/stream/:id', async (req, res) => {
+    const streamId = req.params.id;
+    // Append ?_ic2=1 to prevent Icecast Safari redirect
+    const streamUrl = `https://supersoul.site:8000/${streamId}?_ic2=1`;
+    try {
+        const streamRes = await fetch(streamUrl);
+        if (!streamRes.ok) {
+            res.status(streamRes.status).send('Failed to fetch stream');
+            return;
+        }
+        res.setHeader('Content-Type', streamRes.headers.get('content-type') || 'audio/mpeg');
+        // Pipe audio data
+        streamRes.body.pipe(res);
+    } catch (err) {
+        res.status(500).send('Stream proxy error');
+    }
+});
 
 // Add link preview endpoint
 app.get('/api/link-preview', async (req, res) => {
