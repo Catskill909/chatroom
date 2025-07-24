@@ -4,7 +4,7 @@ FROM node:20-bookworm AS builder
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install
+RUN npm install --legacy-peer-deps
 
 COPY . .
 RUN npm run build
@@ -15,7 +15,7 @@ FROM node:20-bookworm
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install --omit=dev && apt-get update && apt-get upgrade -y && apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN npm install --omit=dev --legacy-peer-deps && apt-get update && apt-get upgrade -y && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/server.js ./

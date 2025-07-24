@@ -19,4 +19,13 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  optimizeDeps: {
+    include: ['emoji-mart'],
+    exclude: ['lovable-tagger']
+  },
+  build: {
+    rollupOptions: {
+      external: ['emoji-mart']
+    }
+  }
 }));
