@@ -1,103 +1,84 @@
-# Real-Time Chatroom Architecture Plan (With Audio & Image Upload)
+# Real-Time Chatroom Development Plan
 
-## Objective
-Create a robust, classic real-time chatroom where:
-- All users see the same chat messages (including images and audio) and user list in real time.
-- Users can upload and share audio and images in chat messages.
-- Audio messages use direct file upload and Blob URLs (no base64 conversion).
-- Avatars and chat window functionality work seamlessly with media sharing.
-- All media is shared efficiently using direct upload (no base64 encoding for audio).
+## 🎯 Project Overview
+A feature-rich, real-time chat application with advanced media sharing capabilities, built with React, TypeScript, and Node.js.
 
----
+## 🚀 Current Status
 
-## Mandate: AI-Driven Implementation
+### ✅ Implemented Features
 
-**The AI assistant must always take direct action to fix, implement, and debug the codebase. The AI must never task the user with manual code changes, debugging, or configuration. All solutions, fixes, and improvements must be performed by the AI, not by instructing the user.**
+#### Core Chat
+- Real-time text messaging
+- User authentication with custom avatars
+- Online user list with presence indicators
+- Message history on connection
+- Emoji picker with skin tone support
+- Link previews for shared URLs
 
-- All changes must be safe, incremental, and thoroughly tested before deployment.
-- Rollbacks to last known working states are preferred over risky experimental changes.
-- Documentation must be kept up to date after any major fix or rollback.
+#### Media Handling
+- **Audio Player**
+  - Direct streaming playback (no base64 conversion)
+  - Metadata extraction (artist, title, album)
+  - Cover art display
+  - Waveform visualization
+  - Playback controls (play/pause, seek, volume)
+  - Mobile-optimized touch controls
+  - Live streaming support
 
----
+- **Image Sharing**
+  - Upload and display in chat
+  - Automatic resizing (max 800px)
+  - Click-to-enlarge with modal viewer
+  - Support for GIFs and WebP
 
-## Success Criteria
+#### Technical Implementation
+- WebSocket for real-time updates
+- REST API for file uploads
+- In-memory message storage
+- File system storage for uploads
+- Responsive UI with Tailwind CSS
+- Type-safe codebase with TypeScript
 
-- All chat, avatar, image, and audio upload features work in real time across browsers.
-- Audio upload uses direct file upload and playback (no base64 conversion).
-- The user is never tasked with manual code changes or debugging.
-- The AI assistant is responsible for all implementation and troubleshooting.
-- The codebase can be rolled back to a stable state at any time without data loss.
+## 🛠️ Architecture
 
----
-
-## Implementation Status
-
-### ✅ Completed Features
-1. **User Authentication**
-   - Username selection
-   - Custom avatar upload and display
-   - Real-time user list
-
-2. **Messaging**
-   - Real-time text chat
-   - Message history on connection
-   - User disconnection handling
-
-3. **Media Handling**
-   - Avatar upload and display using base64
-   - Image sharing in chat messages
-   - Audio upload and streaming playback with cover art and metadata (no base64 conversion)
-   - Smooth audio player with progress bar and time tracking
-   - Rich link previews for URLs with title, description, and thumbnail
-   - Automatic image resizing (max 800px)
-   - 10MB file size limit for audio, 5MB for images
-
-4. **Error Handling**
-   - Socket connection error handling
-   - Image/audio processing error handling
-   - Input validation
-
-## Architecture
-
-### Frontend Components
-- **Chatroom.tsx**: Main chat interface and message handling
-- **ChatInput.tsx**: Message, image, and audio input controls
-- **ChatMessage.tsx**: Individual message display (supports audio player and cover art)
-- **UsernameModal.tsx**: User authentication and avatar upload
+### Frontend (React + TypeScript)
+- **Chatroom.tsx**: Main chat interface
+- **ChatInput.tsx**: Message composition and media upload
+- **ChatMessage.tsx**: Message rendering with media support
+- **AudioPlayer.tsx**: Custom audio player component
+- **LinkPreview.tsx**: URL preview component
+- **UsernameModal.tsx**: User authentication
 - **UsersList.tsx**: Online users display
 
-### Emoji Picker Integration
-
-- **Library:** Integrate [`emoji-mart`](https://github.com/missive/emoji-mart) for emoji picker.
-- **UI/UX:** Emoji icon in [`ChatInput.tsx`](src/components/ChatInput.tsx:1) opens a popover.
-- **Interaction:** Emoji inserted at cursor position in chat input.
-- **Implementation:** Uses shadcn-ui popover/dialog for accessibility and mobile compatibility.
-
-### Backend (server.js)
+### Backend (Node.js)
 - WebSocket server for real-time communication
-- REST endpoints for audio/image upload
-- In-memory storage for users and messages; uploads stored on disk
-- Event-based communication
+- REST endpoints for file uploads
+- In-memory storage for active sessions
+- File system for persistent storage
+- CORS and security middleware
 
-### Data Flow
-1. Users connect and authenticate
-2. Messages and images are sent as base64 strings
-3. Server broadcasts to all connected clients
-4. Frontend updates in real-time
+## 🚧 Future Enhancements
 
-## Future Enhancements
+### Short-term
+- [ ] Message reactions
+- [ ] Typing indicators
+- [ ] Message read receipts
+- [ ] Message search functionality
+- [ ] Dark/light theme toggle
 
-1. **Rich Media Support**
-   - Support for video and file sharing
-   - Inline previews for links and media
+### Medium-term
+- [ ] Video sharing support
+- [ ] File sharing for documents
+- [ ] End-to-end encryption
+- [ ] Push notifications
+- [ ] Message threading
 
-2. **User Experience**
-   - Typing indicators
-   - Message read receipts
-   - Message reactions
-
-3. **Advanced Features**
-   - Private messaging
+### Long-term
+- [ ] Group chat rooms
+- [ ] Voice/video calling
+- [ ] Message pinning
+- [ ] Message editing
+- [ ] User mentions (@username)
    - Message search
    - Message editing and deletion
 
@@ -136,7 +117,6 @@ Create a robust, classic real-time chatroom where:
 
 1. **Rich Media Support**
    - Image, video, and file sharing in chat
-   - Inline previews for links, YouTube, and social media
 
 2. **Advanced User Profiles**
    - Editable bios, status messages, and profile backgrounds
@@ -172,26 +152,22 @@ Create a robust, classic real-time chatroom where:
    - Webhooks for bots and automation
    - Integration with calendar, polls, or collaborative docs
 
-10. **Gamification**
-    - Achievements, badges, and leaderboards
-    - Leveling system for active users
-
-11. **Unique/Experimental Features**
+10. **Unique/Experimental Features**
     - AI-powered message summarization or translation
     - Voice/video chat rooms
     - Anonymous/ephemeral chat modes
     - Collaborative drawing or whiteboard
 
-12. **Performance & Scalability**
+11. **Performance & Scalability**
     - Persistent storage (database integration)
     - Horizontal scaling for large user bases
     - Mobile app version
 
-13. **Analytics & Insights**
+12. **Analytics & Insights**
     - Usage stats for admins
     - Message search and filtering
 
-14. **Open API**
+13. **Open API**
     - Public API for third-party integrations and bots
 
 *This list is non-exhaustive and intended to inspire ongoing innovation and improvement. Prioritize based on user feedback and technical feasibility.*

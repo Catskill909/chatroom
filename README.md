@@ -8,7 +8,7 @@ A robust, real-time group chatroom with audio and image upload, built with React
 - Audio file upload and streaming playback in chat (with metadata, cover art, and progress bar)
 - Custom avatar upload and management for each user
 - Image sharing in chat messages with click-to-enlarge modal
-- Rich link previews for URLs shared in chat (supports most websites including YouTube, Twitter, and news sites)
+- Rich link previews for URLs shared in chat (supports most websites including YouTube etc.)
 - User list with avatars and online status
 - Audio notification settings (enable/disable sounds)
 - Responsive UI with shadcn-ui and Tailwind CSS
@@ -27,13 +27,25 @@ The chat automatically detects and displays rich previews for URLs:
 #### Audio & Image Upload
 
 The chat supports audio and image sharing with the following features:
+
+**Audio Player Features:**
+- 🎵 **Direct Streaming Playback**: Audio files stream directly without full download
+- 🎨 **Rich Metadata Display**: Shows artist, title, and album from audio files
+- 🖼️ **Cover Art**: Displays embedded album art when available
+- ⏯️ **Playback Controls**: Play/pause, volume control, and seek functionality
+- ⏱️ **Time Tracking**: Current position and duration display
+- 📈 **Waveform Visualization**: Visual representation of audio waveform
+- 🔄 **Live Streaming**: Supports live audio streams with adaptive bitrate
+- 📱 **Mobile Optimized**: Touch-friendly controls for all devices
+
+**General Media Features:**
 - Click the audio or image icon in the chat input to select a file
 - Audio files are uploaded directly (no base64 conversion) with streaming playback
 - Smooth audio playback with progress bar and time tracking
 - Cover art and metadata are extracted and displayed with audio messages
 - Images are automatically resized and optimized
 - Maximum file size: 10MB for audio, 5MB for images
-- Supported formats: All standard image and audio formats (JPEG, PNG, GIF, MP3, WAV, etc.)
+- Supported formats: All standard image and audio formats (JPEG, PNG, GIF, MP3, WAV, OGG, etc.)
 - Images and audio are displayed inline with chat messages
 
 ### Account & Notifications
