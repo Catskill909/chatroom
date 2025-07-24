@@ -135,27 +135,38 @@ export const ChatInput = ({ onSendMessage }: { onSendMessage: (msg: ChatInputMes
       console.log('[DEBUG] FormData created, uploading to /upload/audio');
       try {
         const backendUrl = getBackendUrl();
-        const res = await fetch(`${backendUrl}/upload/audio`, {
-          method: 'POST',
-          body: formData,
-        });
-        console.log('[DEBUG] Upload response status:', res.status, res.statusText);
-        if (!res.ok) {
-          const errorText = await res.text();
-          console.error('[DEBUG] Upload failed with response:', errorText);
-          throw new Error(`Audio upload failed: ${res.status} ${res.statusText}`);
-        }
-        const data = await res.json();
-        console.log('[DEBUG] Upload successful, received URL:', data.url);
-        audioUrl = data.url;
-        console.log('[DEBUG] Setting progress to 100%');
-        // Use functional update and await the state update
-        await new Promise(resolve => {
-          setUploadProgress(100);
-          setUploadStage('complete');
-          console.log('[DEBUG] Progress set to 100%, waiting for visual update');
-          // Ensure the UI has time to update to 100%
-          setTimeout(resolve, 100);
+        const axios = (await import('axios')).default;
+        await new Promise(async (resolve, reject) => {
+          axios.post(
+            `${backendUrl}/upload/audio`,
+            formData,
+            {
+              headers: {
+                'Content-Type': 'multipart/form-data',
+              },
+              onUploadProgress: (progressEvent: import('axios').AxiosProgressEvent) => {
+                if (progressEvent.total) {
+                  // Progress from 50% to 100% for audio upload
+                  const percent = Math.round(
+                    50 + (progressEvent.loaded! / progressEvent.total) * 50
+                  );
+                  setUploadProgress(percent);
+                }
+              },
+            }
+          )
+            .then(res => {
+              if (res.status !== 200) {
+                throw new Error(`Audio upload failed: ${res.status} ${res.statusText}`);
+              }
+              audioUrl = res.data.url;
+              setUploadProgress(100);
+              setUploadStage('complete');
+              setTimeout(resolve, 100);
+            })
+            .catch(err => {
+              reject(err);
+            });
         });
       } catch (err) {
         console.error('[DEBUG] Upload error:', err);
