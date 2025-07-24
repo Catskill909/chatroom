@@ -32,7 +32,9 @@ export const LinkPreview = ({ url }: LinkPreviewProps) => {
         log('Starting to fetch preview from server...');
         // Always use the full URL in development to avoid CORS issues
         // In production, this will be handled by the reverse proxy
-        const apiUrl = `http://localhost:3000/api/link-preview?url=${encodeURIComponent(url)}`;
+        // Use window.location.origin for prod, fallback to localhost for dev
+const baseApiUrl = (typeof window !== 'undefined' && window.location.origin) ? window.location.origin : 'http://localhost:3000';
+const apiUrl = `${baseApiUrl}/api/link-preview?url=${encodeURIComponent(url)}`;
         
         log('API URL:', apiUrl);
         const response = await fetch(apiUrl, {
