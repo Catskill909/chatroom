@@ -86,6 +86,89 @@ npm run dev
 
 ---
 
+## Presence Model (Ephemeral, Non-Persistent)
+
+- Online users are computed from the server's in-memory connections only.
+- On join/disconnect, server emits the `users` list from memory (DB is not read for presence).
+- Client emits `leave` on `beforeunload` so closing a tab removes you instantly.
+- Server `pingTimeout` is 15s to clear stale connections quickly on abrupt closes.
+
+Test quickly:
+1. Start backend: `node server.js` (http://localhost:3000)
+2. Start frontend: `npm run dev` (visit printed Vite URL)
+3. Open two tabs, join as two users
+4. Close one tab → user should disappear immediately in the other tab
+
+Notes:
+- If you force-kill a tab and see "username taken", wait ~15s or refresh; the server will drop the stale presence.
+- In dev, `.env` should include `VITE_SOCKET_URL=http://localhost:3000`.
+
+---
+
+## 6. Using MongoDB Locally (Docker)
+
+If you prefer not to install MongoDB directly, use Docker Compose to run only the DB service locally:
+
+```sh
+# Start only MongoDB from docker-compose.yml
+docker compose up -d mongodb
+
+# Verify Mongo is up
+docker compose ps
+```
+
+Then set your `.env` for the backend to point to localhost:
+
+```
+MONGO_URI=mongodb://localhost:27017/chatapp
+```
+
+Start servers as usual:
+
+```sh
+node server.js       # backend on port 3000
+npm run dev          # frontend on port 5173
+```
+
+Data persistence:
+- Mongo data is stored in the named volume `mongodb_data` (see `docker-compose.yml`).
+- You can stop/start the DB without losing data.
+
+Alternative (full Docker):
+- `docker compose up -d` runs both `app` and `mongodb` (production style). This serves the built frontend from the backend at port 3000.
+- For dev with Vite HMR, use the split-mode above and only run the `mongodb` service from Docker.
+
+### Alternative: Using MongoDB Locally (Homebrew)
+
+If you prefer native MongoDB without Docker:
+
+```sh
+# Install MongoDB Community Edition (macOS)
+brew tap mongodb/brew
+brew install mongodb-community@7.0
+
+# Start as a background service
+brew services start mongodb-community@7.0
+
+# Verify connectivity
+mongosh --quiet --eval 'db.runCommand({ ping: 1 })'
+```
+
+Set your `.env`:
+
+```
+MONGO_URI=mongodb://localhost:27017/chatapp
+```
+
+Then run backend and frontend as usual:
+
+```sh
+node server.js
+npm run dev
+```
+
+---
+
 ## Notes
 
 - Both servers must be running for full functionality.

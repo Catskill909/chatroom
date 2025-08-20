@@ -48,7 +48,9 @@
 2. **Set Up Environment**
    ```sh
    cp .env.example .env
-   # Edit .env if needed (VITE_SOCKET_URL should point to your backend)
+   # Edit .env if needed:
+   # - VITE_SOCKET_URL should point to your backend (or leave unset for same-origin in prod)
+   # - MONGO_URI e.g. mongodb://localhost:27017/chatapp (or mongodb://mongodb:27017/chatapp in Docker)
    ```
 
 3. **Start Backend (Port 3000 - REQUIRED for Coolify)**
@@ -134,7 +136,6 @@ BACKEND_PID=$!
 echo "Backend started (PID: $BACKEND_PID)"
 
 # Start frontend
-cd client
 npm run dev &
 FRONTEND_PID=$!
 

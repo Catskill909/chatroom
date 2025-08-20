@@ -34,8 +34,9 @@ A feature-rich, real-time chat application with advanced media sharing capabilit
 #### Technical Implementation
 - WebSocket for real-time updates
 - REST API for file uploads
-- In-memory message storage
-- File system storage for uploads
+- MongoDB persistence via Mongoose (messages + users) with in-memory fallback if DB unavailable
+- 90-day TTL on messages via MongoDB index (auto-purge)
+- File system storage for uploads (audio/images) under `uploads/`
 - Responsive UI with Tailwind CSS
 - Type-safe codebase with TypeScript
 
@@ -53,8 +54,9 @@ A feature-rich, real-time chat application with advanced media sharing capabilit
 ### Backend (Node.js)
 - WebSocket server for real-time communication
 - REST endpoints for file uploads
-- In-memory storage for active sessions
-- File system for persistent storage
+- Mongoose models for `Message` (TTL on `createdAt`) and `User` (avatar, status, lastSeen)
+- In-memory storage for active sessions; persistent data in MongoDB
+- File system for persistent media storage (`uploads/`)
 - CORS and security middleware
 
 ## 🚧 Future Enhancements
@@ -159,7 +161,7 @@ A feature-rich, real-time chat application with advanced media sharing capabilit
     - Collaborative drawing or whiteboard
 
 11. **Performance & Scalability**
-    - Persistent storage (database integration)
+    - Database integration (MongoDB) — DONE
     - Horizontal scaling for large user bases
     - Mobile app version
 

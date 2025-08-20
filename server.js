@@ -7,6 +7,9 @@ import multer from 'multer';
 import path from 'path';
 import cors from 'cors';
 import { getLinkPreview } from 'link-preview-js';
+import 'dotenv/config';
+
+import mongoose from 'mongoose';
 
 const app = express();
 
@@ -28,6 +31,64 @@ app.options('*', cors());
 import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// --- DATABASE (MongoDB) SETUP ---
+const MONGO_URI = process.env.MONGO_URI;
+
+if (MONGO_URI) {
+    mongoose.connect(MONGO_URI)
+        .then(() => console.log('Connected to MongoDB'))
+        .catch((err) => console.error('MongoDB connection error:', err));
+} else {
+    console.log('MONGO_URI not set. Using in-memory message store.');
+}
+
+const messageSchema = new mongoose.Schema({
+    id: { type: String, required: true, index: true },
+    username: { type: String, required: true },
+    content: { type: String, default: '' },
+    // Client-provided timestamp used for UI display
+    timestamp: { type: Date, default: Date.now },
+    // Server-side creation time for TTL expiry
+    createdAt: { type: Date, default: Date.now },
+    avatar: { type: String },
+    image: { type: String },
+    audio: { type: String },
+    audioMeta: {
+        title: { type: String },
+        artist: { type: String },
+        album: { type: String },
+        coverUrl: { type: String }
+    }
+}, { versionKey: false, minimize: false });
+
+// Purge messages automatically after 90 days (does not affect uploaded files)
+messageSchema.index({ createdAt: 1 }, { expireAfterSeconds: 60 * 60 * 24 * 90 });
+
+const Message = (mongoose.models && mongoose.models.Message) || mongoose.model('Message', messageSchema);
+
+// Users schema/model (Step 2)
+const userSchema = new mongoose.Schema({
+    username: { type: String, required: true, unique: true },
+    avatar: { type: String },
+    status: { type: String, enum: ['online', 'away', 'offline'], default: 'offline' },
+    lastSeen: { type: Date, default: null }
+}, { versionKey: false, timestamps: true });
+
+const User = (mongoose.models && mongoose.models.User) || mongoose.model('User', userSchema);
+if (MONGO_URI) {
+    mongoose.connection.once('open', async () => {
+        try {
+            await Message.syncIndexes();
+            console.log('Message indexes synced');
+            await User.syncIndexes();
+            console.log('User indexes synced');
+        } catch (e) {
+            console.error('Error syncing Message indexes:', e);
+        }
+    });
+}
+// --- END DATABASE SETUP ---
 
 // --- AUDIO & COVER UPLOAD SETUP ---
 const AUDIO_UPLOAD_DIR = path.join(__dirname, 'uploads', 'audio');
@@ -176,7 +237,7 @@ const io = new Server(server, {
         credentials: true
     },
     maxHttpBufferSize: 20 * 1024 * 1024, // 20MB max payload size
-    pingTimeout: 60000, // Increase ping timeout to 60 seconds
+    pingTimeout: 15000, // Shorter timeout to reduce presence linger
     pingInterval: 25000, // Send pings every 25 seconds
     connectTimeout: 60000, // Increase connection timeout to 60 seconds
     transports: ['websocket', 'polling'], // Enable both transports
@@ -203,27 +264,80 @@ io.on('connection', (socket) => {
     });
 
     // Send full state to new client
-    socket.emit('users', Object.values(users));
-    socket.emit('history', messages);
-    console.log(`[emit] users ->`, Object.values(users));
-    console.log(`[emit] history ->`, messages);
+    (async () => {
+        // Users list (ephemeral, memory-only)
+        const uniqueUsers = Object.values(users).filter((u, i, arr) => arr.findIndex(other => other.username === u.username) === i);
+        socket.emit('users', uniqueUsers);
+        console.log(`[emit] users (memory) ->`, uniqueUsers);
 
-    socket.on('join', ({ username, avatar }) => {
-        // Enforce unique usernames
+        try {
+            if (mongoose.connection.readyState === 1) {
+                // Load recent messages from DB (limit to 200 for performance)
+                const history = await Message.find({}).sort({ timestamp: 1 }).limit(200).lean();
+                socket.emit('history', history);
+                console.log(`[emit] history (db) count ->`, history.length);
+            } else {
+                socket.emit('history', messages);
+                console.log(`[emit] history (memory) count ->`, messages.length);
+            }
+        } catch (err) {
+            console.error('[history] error loading from DB, falling back to memory:', err);
+            socket.emit('history', messages);
+        }
+    })();
+
+    socket.on('join', async ({ username, avatar }) => {
+        // Enforce unique usernames using memory (ephemeral presence)
         const nameTaken = Object.values(users).some(u => u.username === username);
         if (nameTaken) {
             socket.emit('join_error', { message: 'Username already taken. Please choose another.' });
-            console.log(`[backend] join rejected for duplicate username: ${username}`);
+            console.log(`[backend] join rejected for duplicate username (memory): ${username}`);
             return;
         }
+
+        // Update DB record for reference (do not rely on DB for presence)
+        try {
+            if (mongoose.connection.readyState === 1) {
+                await User.updateOne(
+                    { username },
+                    { $set: { avatar: avatar || null, status: 'online' }, $setOnInsert: { createdAt: new Date() } },
+                    { upsert: true }
+                );
+            }
+        } catch (e) {
+            console.error('[join] DB update error (continuing with memory presence):', e);
+        }
+
+        // Reflect in memory map for this socket and broadcast
         users[socket.id] = { username, avatar, isOnline: true };
-        // Emit only unique usernames to clients
         const uniqueUsers = Object.values(users).filter((u, i, arr) => arr.findIndex(other => other.username === u.username) === i);
         io.emit('users', uniqueUsers);
-        console.log(`[emit] users ->`, uniqueUsers);
+        console.log(`[emit] users (memory) ->`, uniqueUsers);
     });
 
-    socket.on('message', (msg) => {
+    // Immediate leave handler for tab/window close
+    socket.on('leave', async ({ username }) => {
+        if (!username) return;
+        console.log(`[leave] ${username} requested immediate leave`);
+        // Remove all entries for this username (handles multiple tabs)
+        for (const [id, user] of Object.entries(users)) {
+            if (user.username === username) {
+                delete users[id];
+            }
+        }
+        try {
+            if (mongoose.connection.readyState === 1) {
+                await User.updateOne({ username }, { $set: { status: 'offline', lastSeen: new Date() } });
+            }
+        } catch (e) {
+            console.error('[leave] DB update error:', e);
+        }
+        const uniqueUsers = Object.values(users).filter((u, i, arr) => arr.findIndex(other => other.username === u.username) === i);
+        io.emit('users', uniqueUsers);
+        console.log(`[emit] users (memory) ->`, uniqueUsers);
+    });
+
+    socket.on('message', async (msg) => {
         console.log(`[recv] message received from ${socket.id}`);
 
         // Check if message contains an image and log accordingly
@@ -234,24 +348,45 @@ io.on('connection', (socket) => {
             console.log(`[recv] text-only message: "${msg.content}"`);
         }
 
+        // Persist to DB if available; keep memory as fallback
+        try {
+            if (mongoose.connection.readyState === 1) {
+                await Message.create(msg);
+            }
+        } catch (err) {
+            console.error('[db] error saving message:', err);
+        }
+
         messages.push(msg);
+        // Cap memory history to avoid unbounded growth (keep last 1000)
+        if (messages.length > 1000) {
+            messages = messages.slice(-1000);
+        }
         io.emit('message', msg);
         console.log(`[emit] broadcasted message to all clients`);
     });
 
-    socket.on('disconnect', () => {
-        if (users[socket.id]) {
-            console.log(`[disconnect] ${users[socket.id].username} (${socket.id})`);
+    socket.on('disconnect', async () => {
+        const userInfo = users[socket.id];
+        if (userInfo) {
+            console.log(`[disconnect] ${userInfo.username} (${socket.id})`);
             delete users[socket.id];
-            // Emit only unique usernames to clients
+            try {
+                if (mongoose.connection.readyState === 1) {
+                    await User.updateOne({ username: userInfo.username }, { $set: { status: 'offline', lastSeen: new Date() } });
+                }
+            } catch (e) {
+                console.error('[disconnect] DB error (presence remains memory-only):', e);
+            }
+            // Always broadcast presence from memory
             const uniqueUsers = Object.values(users).filter((u, i, arr) => arr.findIndex(other => other.username === u.username) === i);
             io.emit('users', uniqueUsers);
-            console.log(`[emit] users ->`, uniqueUsers);
+            console.log(`[emit] users (memory) ->`, uniqueUsers);
         }
     });
 
     // Handle avatar updates
-    socket.on('update_avatar', ({ username, avatar }) => {
+    socket.on('update_avatar', async ({ username, avatar }) => {
         console.log(`[update_avatar] Received request to update avatar for ${username}`);
         console.log(`[update_avatar] Current users:`, Object.values(users).map(u => ({
             username: u.username,
@@ -271,19 +406,20 @@ io.on('connection', (socket) => {
         
         if (!found) {
             console.warn(`[update_avatar] User ${username} not found in users list`);
-            return;
+            // continue to DB update if possible
         }
         
-        // Broadcast the updated users list
-        const uniqueUsers = Object.values(users).filter((u, i, arr) => 
-            arr.findIndex(other => other.username === u.username) === i
-        );
-        
-        console.log(`[update_avatar] Broadcasting updated users list:`, uniqueUsers.map(u => ({
-            username: u.username,
-            avatar: u.avatar ? 'has-avatar' : 'no-avatar'
-        })));
-        
+        try {
+            if (mongoose.connection.readyState === 1) {
+                await User.updateOne({ username }, { $set: { avatar } });
+            }
+        } catch (e) {
+            console.error('[update_avatar] DB error (presence remains memory-only):', e);
+        }
+
+        // Broadcast the updated users list (always memory)
+        const uniqueUsers = Object.values(users).filter((u, i, arr) => arr.findIndex(other => other.username === u.username) === i);
+        console.log(`[update_avatar] Broadcasting updated users list (memory):`, uniqueUsers.map(u => ({ username: u.username, avatar: u.avatar ? 'has-avatar' : 'no-avatar' })));
         io.emit('users', uniqueUsers);
     });
 

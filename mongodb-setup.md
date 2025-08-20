@@ -86,6 +86,66 @@ This document outlines a step-by-step plan to integrate MongoDB into the chat ap
 #### Incremental Updates
 - Redeploy only the app container for code updates, keeping the MongoDB container and volume intact.
 
+### 4. Data Retention (Messages TTL)
+- Messages are automatically purged after 90 days by MongoDB TTL index.
+- We store two timestamps:
+  - `timestamp`: client/UI timestamp (unchanged)
+  - `createdAt`: server-side creation time for TTL expiry
+
+Schema and TTL index (already implemented in `server.js`):
+```js
+const messageSchema = new mongoose.Schema({
+  id: { type: String, required: true, index: true },
+  username: { type: String, required: true },
+  content: { type: String, default: '' },
+  timestamp: { type: Date, default: Date.now },
+  createdAt: { type: Date, default: Date.now },
+  avatar: String,
+  image: String,
+  audio: String,
+  audioMeta: { title: String, artist: String, album: String, coverUrl: String }
+}, { versionKey: false, minimize: false });
+
+messageSchema.index({ createdAt: 1 }, { expireAfterSeconds: 60 * 60 * 24 * 90 });
+```
+
+Notes:
+- TTL deletes only Mongo documents, not uploaded files. Audio/images remain on disk under `uploads/`.
+- One-off backfill for older docs missing `createdAt`:
+```js
+db.messages.updateMany({ createdAt: { $exists: false } }, [{ $set: { createdAt: "$timestamp" } }])
+```
+
+### 5. Users Persistence (Step 2)
+- Persist nick and avatar with online status and lastSeen.
+
+Schema (implemented in `server.js`):
+```js
+const userSchema = new mongoose.Schema({
+  username: { type: String, required: true, unique: true },
+  avatar: { type: String },
+  status: { type: String, enum: ['online', 'away', 'offline'], default: 'offline' },
+  lastSeen: { type: Date, default: null }
+}, { versionKey: false, timestamps: true });
+```
+
+Wiring summary:
+- On `join`: enforce unique online username, upsert user with `status=online`, sync users list from DB.
+- On `disconnect`: set `status=offline`, `lastSeen=now`, broadcast online users from DB.
+- On `update_avatar`: update avatar in DB, broadcast users from DB.
+- Fallback to in-memory behavior if DB unavailable.
+
+### 6. Docker Update Strategy (Keep settings/uploads/DB; update app)
+- Persistence:
+  - MongoDB uses named volume `mongodb_data`.
+  - Uploads bind mount `./uploads:/app/uploads` preserves media across redeploys.
+  - `.env` holds settings; not baked into image.
+- Update app image only:
+  - `docker compose build app && docker compose up -d app`
+  - Or `docker compose pull app && docker compose up -d app` when using a registry.
+- Optional zero-downtime: front with Traefik/Caddy and roll tags.
+- Backups (recommended): nightly `mongodump` via a small cron container or external job.
+
 ### 4. Testing
 #### Database Connection Test
 - Use a MongoDB client (e.g., Compass or Robo 3T) to connect to the database.
@@ -97,7 +157,7 @@ This document outlines a step-by-step plan to integrate MongoDB into the chat ap
 #### Real-Time Messaging
 - Verify that messages are delivered instantly via WebSockets.
 
-### 5. Open-Source Considerations
+### 7. Open-Source Considerations
 - Package the app and MongoDB configuration into a single Docker Compose file.
 - Include detailed documentation for setup and deployment.
 - Ensure the app is easy to install and run for contributors and users.

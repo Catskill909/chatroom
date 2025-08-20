@@ -117,7 +117,7 @@ export const Chatroom = () => {
         'X-Custom-Header': 'chat-client'
       },
       // Socket.IO specific options
-      closeOnBeforeunload: false,
+      closeOnBeforeunload: true,
       // These options are valid but might need type assertion
       ...{
         // @ts-ignore - These are valid Socket.IO options but not in the TypeScript types
@@ -227,6 +227,17 @@ export const Chatroom = () => {
 
     setSocket(socketInstance);
 
+    // Proactively tell server we're leaving before the tab closes
+    const beforeUnloadHandler = () => {
+      try {
+        const username = userRef.current.username;
+        if (username) {
+          socketInstance.emit('leave', { username });
+        }
+      } catch {}
+    };
+    window.addEventListener('beforeunload', beforeUnloadHandler);
+
     // Clean up function
     return () => {
       console.log("[socket] Cleaning up event listeners");
@@ -237,11 +248,11 @@ export const Chatroom = () => {
       socketInstance.off('message', handleMessage);
       socketInstance.off('history', handleHistory);
       socketInstance.off('join_error', handleJoinError);
+      window.removeEventListener('beforeunload', beforeUnloadHandler);
       
-      if (!window.location.pathname.includes('chat')) {
-        console.log("[socket] Disconnecting...");
-        socketInstance.disconnect();
-      }
+      // Always disconnect on unmount to avoid lingering presence
+      console.log("[socket] Disconnecting...");
+      socketInstance.disconnect();
     };
   }, [currentUser, userAvatar, toast]);
 

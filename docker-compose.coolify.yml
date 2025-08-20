@@ -1,0 +1,63 @@
+version: "3.8"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: chatapp
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - MONGO_URI=mongodb://mongodb:27017/chatapp
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000').then(()=>process.exit(0)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  mongodb:
+    image: mongo:7
+    container_name: mongodb
+    restart: unless-stopped
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'db.runCommand({ ping: 1 })' | mongosh --quiet || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  backup:
+    image: bitnami/mongodb:7.0
+    container_name: mongodb-backup
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    environment:
+      - MONGODB_HOST=mongodb
+      - MONGODB_PORT_NUMBER=27017
+    volumes:
+      - mongo_backups:/backups
+    restart: unless-stopped
+    entrypoint: ["/bin/bash", "-lc"]
+    command: >
+      "while true; do \
+        ts=$(date +%Y%m%d_%H%M%S); \
+        echo \"[backup] Starting mongodump at $ts\"; \
+        mongodump --host ${MONGODB_HOST} --port ${MONGODB_PORT_NUMBER} --out /backups/dump_$ts && \
+        find /backups -maxdepth 1 -type d -name 'dump_*' -mtime +14 -print -exec rm -rf {} \; ; \
+        echo \"[backup] Completed at $(date +%Y%m%d_%H%M%S). Sleeping 24h...\"; \
+        sleep 86400; \
+      done"
+
+volumes:
+  mongodb_data:
+  uploads:
+  mongo_backups:

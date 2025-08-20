@@ -89,6 +89,55 @@ The chat supports audio and image sharing with the following features:
 
 ---
 
+## Developer Quickstart Checklist
+
+- Ensure `.env` exists. Minimum:
+  - `VITE_SOCKET_URL=http://localhost:3000` (for split dev)
+  - `MONGO_URI=mongodb://localhost:27017/chatapp` (if running Mongo locally)
+- Start MongoDB (local via Docker): `docker compose up -d mongodb`
+- Start backend: `node server.js` (port 3000)
+- Start frontend (dev): `npm run dev` (port 5173)
+- If using same-origin in production (Coolify), you can omit `VITE_SOCKET_URL`.
+- Troubleshoot ports: `./check-servers.sh` and see `startup-server-guide.md`.
+
+## Dev Servers & URLs (Development vs Production)
+
+- Frontend (Vite dev server): usually http://localhost:5173 (Vite may pick 5174/5175 if busy; check terminal output)
+- Backend (server.js): http://localhost:3000
+- Frontend → Backend socket URL: configured via `.env` `VITE_SOCKET_URL` (dev default: `http://localhost:3000`)
+- Production (Coolify/Docker): backend serves static frontend and Socket.IO on port 3000 behind your domain
+
+## User Presence Model (Ephemeral/Non-Persistent)
+
+- Online users are computed from in-memory connections only (no DB reads for presence)
+- On join/disconnect, server emits `users` from memory
+- Client emits `leave` on tab close (`beforeunload`) for immediate removal
+- Server `pingTimeout` is 15s to reduce linger on abrupt closes
+- Database persists messages, media, avatars, and last-seen/status for history only
+
+### Test Presence Locally
+
+1. Start backend: `node server.js` (http://localhost:3000)
+2. Start frontend: `npm run dev` (visit the printed Vite URL)
+3. Open two tabs, join with two usernames
+4. Close one tab → the closed user should disappear immediately in the other tab
+5. If a tab is force-closed and lingers, it will clear within ~15s
+
+### Troubleshooting
+
+- “Username already taken” right after a crash/force-close: wait ~15s or refresh; the server will drop stale presence
+- If UI shows but no chat/users: verify `.env` contains `VITE_SOCKET_URL=http://localhost:3000` in dev
+
+## Docs Index
+
+- Local Dev Guide: `LOCAL_DEV_SETUP.md`
+- MongoDB Integration & TTL: `mongodb-setup.md`
+- Startup/Ports/Checks: `startup-server-guide.md`
+- Docker (local): `docker-compose.yml`
+- Docker (Coolify deploy): `docker-compose.coolify.yml`
+- Architecture & Roadmap: `plan.md`
+- Audio flow and known issues: `audio-feature.md`, `live-audio-upload-errors.md`
+
 ## Setup & Usage
 
 ### Prerequisites
@@ -176,6 +225,7 @@ CMD ["node", "server.js"]
 - `PORT` (default: 3000)
 - `SSL_KEY_PATH` and `SSL_CERT_PATH` for HTTPS (see below)
 - `VITE_SOCKET_URL` for frontend-to-backend WebSocket URL (set to `https://chat.supersoul.top` in production)
+- `MONGO_URI` MongoDB connection string (e.g. `mongodb://localhost:27017/chatapp` locally, or `mongodb://mongodb:27017/chatapp` inside Docker/Coolify)
 
 #### HTTPS & WebSocket Deployment Notes
 
@@ -184,6 +234,29 @@ CMD ["node", "server.js"]
   - `SSL_CERT_PATH` — Path to your SSL certificate file (e.g., `/etc/letsencrypt/live/yourdomain.com/fullchain.pem`)
 - The server will automatically use HTTPS if both variables are set.
 - If deploying frontend and backend on different origins, set `VITE_SOCKET_URL` in your frontend environment to the full wss:// or https:// URL of your backend (e.g., `wss://chat.supersoul.top`).
+
+### Coolify Git-based Deployment (via Docker Compose)
+
+Use the provided `docker-compose.coolify.yml` for GitOps-style deployments that preserve data across updates.
+
+Steps:
+- In Coolify: New Resource → Docker Compose → Git Repository.
+- Select this repo/branch and set Compose Path to `docker-compose.coolify.yml`.
+- Enable Auto Deploy on push (optional).
+- Add a Domain to the `app` service. Coolify will proxy to internal port 3000 automatically.
+- Issue a TLS certificate in Coolify (Let's Encrypt) for HTTPS/WSS.
+
+What this Compose sets up:
+- Service `mongodb` with a named volume `mongodb_data` for persistent DB.
+- Service `app` (built from Dockerfile) with a named volume `uploads` mounted at `/app/uploads` so media persists.
+- Environment `MONGO_URI=mongodb://mongodb:27017/chatapp` inside `app`.
+- Healthchecks for both services. No external DB port is exposed.
+
+Notes:
+- You do NOT need to set `VITE_SOCKET_URL` if the frontend and backend run in the same container behind the Coolify domain; the app will use same-origin in production.
+- Message retention: MongoDB TTL auto-purges chat messages after 90 days; media files under `uploads/` remain on disk.
+- Updates: simply push to Git; Coolify rebuilds and redeploys the `app` service while keeping the `mongodb_data` and `uploads` volumes intact.
+- Optional backups: schedule `mongodump` or use Coolify’s backup features for the `mongodb_data` volume.
 
 #### Generating Self-Signed Certificates (for testing)
 
