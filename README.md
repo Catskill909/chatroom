@@ -138,6 +138,42 @@ The chat supports audio and image sharing with the following features:
 - Architecture & Roadmap: `plan.md`
 - Audio flow and known issues: `audio-feature.md`, `live-audio-upload-errors.md`
 
+## Changelog (2025-08-19)
+
+- OSSPlayer (Azuracast/Icecast corner player) in `src/components/OSSPlayer.tsx`:
+  - Implemented EST schedule-based switching via `SHOW_WINDOWS`.
+  - On station change, updates `<audio>` `src`, calls `load()`, and auto-resumes `play()` if it was already playing.
+  - Countdown shows time until next live start and “Live Now!” during the window.
+  - Error fallback: if live errors/stalls, falls back to main and suppresses live retry for 2 minutes to avoid flapping.
+  - Chat message audio player is unchanged.
+
+## Azuracast/Icecast Corner Player (OSSPlayer)
+
+- Code: `src/components/OSSPlayer.tsx`
+- Streams:
+  - Main: `https://supersoul.site:8000/OSS-320`
+  - Live: `https://supersoul.site:8010/OSSlive`
+- Metadata API: `https://supersoul.site/api/nowplaying` (station id: main=1, live=15)
+- Current live schedule (EST):
+  - Saturday 20:00–23:59
+  - Sunday 00:00–01:00
+  - Configured via `SHOW_WINDOWS` in code.
+- Behavior:
+  - Auto-switches between main/live by schedule; updates the actual audio stream, not just the label.
+  - Auto-resumes playback after switch if it was playing.
+  - If the live stream fails, falls back to main and retries after ~2 minutes.
+
+### Quick test
+1. Start the player and confirm audio.
+2. Temporarily add a `SHOW_WINDOWS` window that includes the current time to simulate “Live Now!”
+3. Verify the Network tab shows the `<audio>` request switch from `:8000/OSS-320` to `:8010/OSSlive`.
+4. Revert the temporary window.
+
+### Next steps (for next testing session)
+- Confirm exact EST live windows and station IDs; update `SHOW_WINDOWS` if needed.
+- Manually test around a real boundary or simulate as above.
+- Optional (later): minimal admin panel to edit schedule windows; simple password auth; store in MongoDB.
+
 ## Setup & Usage
 
 ### Prerequisites

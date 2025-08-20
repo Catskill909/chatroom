@@ -1,9 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import '@fortawesome/fontawesome-free/css/all.min.css';
 
-// Stream URLs from original player
-const isLocal = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
-
 // Utility to detect Safari (not Chrome or Android)
 function isSafari() {
   if (typeof window === 'undefined') return false;
@@ -11,34 +8,79 @@ function isSafari() {
   return /Safari/.test(ua) && !/Chrome|Chromium|Android/.test(ua);
 }
 
+// Stream URLs
 const STREAMS = {
   main: isSafari() ? "https://supersoul.site:8000/OSS-320?_ic2=1" : "https://supersoul.site:8000/OSS-320",
   live: isSafari() ? "https://supersoul.site:8010/OSSlive?_ic2=1" : "https://supersoul.site:8010/OSSlive",
 };
 const API_URL = "https://supersoul.site/api/nowplaying";
 
-function getNextShowTimeInEST() {
+// ===== Scheduling (EST) =====
+const TZ = "America/New_York";
+type Station = "main" | "live";
+type ShowWindow = { day: number; start: string; end: string };
+
+// Configure your live windows here.
+// Example: Live every Saturday 8:00 PM–11:59 PM and Sunday 12:00 AM–1:00 AM EST.
+const SHOW_WINDOWS: ShowWindow[] = [
+  { day: 6, start: "20:00", end: "23:59" }, // Sat 20:00–23:59 EST
+  { day: 0, start: "00:00", end: "01:00" }, // Sun 00:00–01:00 EST
+];
+
+function nowInTZ(): Date {
   const now = new Date();
-  const nowEST = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
-  const nextShow = new Date(nowEST);
-  nextShow.setDate(nextShow.getDate() + ((6 - nowEST.getDay() + 7) % 7));
-  nextShow.setHours(20, 0, 0, 0);
-  if (nowEST > nextShow) {
-    nextShow.setDate(nextShow.getDate() + 7);
-  }
-  return nextShow;
+  return new Date(now.toLocaleString("en-US", { timeZone: TZ }));
 }
 
-function isShowTime() {
-  const now = new Date();
-  const estTime = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
-  const dayOfWeek = estTime.getDay();
-  const hours = estTime.getHours();
-  const minutes = estTime.getMinutes();
-  return (
-    (dayOfWeek === 6 && hours >= 20) ||
-    (dayOfWeek === 0 && hours === 0 && minutes === 0)
-  );
+function hmToMinutes(hm: string): number {
+  const [h, m] = hm.split(":" ).map(n => parseInt(n, 10));
+  return h * 60 + m;
+}
+
+function minutesSinceWeekStart(d: Date): number {
+  return d.getDay() * 1440 + d.getHours() * 60 + d.getMinutes();
+}
+
+function isWithinWindow(d: Date, w: ShowWindow): boolean {
+  const day = d.getDay();
+  if (day !== w.day) return false;
+  const mins = d.getHours() * 60 + d.getMinutes();
+  return mins >= hmToMinutes(w.start) && mins < hmToMinutes(w.end);
+}
+
+function isLiveNowEST(): boolean {
+  const d = nowInTZ();
+  return SHOW_WINDOWS.some(w => isWithinWindow(d, w));
+}
+
+// Returns ms until next boundary (start or end), and whether boundary is a "start" or "end" event
+function msUntilNextBoundary(): { ms: number; type: "start" | "end" } {
+  const d = nowInTZ();
+  const nowWeekMins = minutesSinceWeekStart(d);
+  const WEEK = 7 * 1440;
+
+  // Build list of future boundaries in minutes from week start
+  const boundaries: Array<{ minute: number; type: "start" | "end" }> = [];
+  for (const w of SHOW_WINDOWS) {
+    const startMin = w.day * 1440 + hmToMinutes(w.start);
+    const endMin = w.day * 1440 + hmToMinutes(w.end);
+    boundaries.push({ minute: startMin, type: "start" });
+    boundaries.push({ minute: endMin, type: "end" });
+  }
+
+  // Find next boundary after now (wrap a week ahead if needed)
+  let bestDelta = Number.POSITIVE_INFINITY;
+  let bestType: "start" | "end" = "start";
+  for (const b of boundaries) {
+    let delta = b.minute - nowWeekMins;
+    if (delta <= 0) delta += WEEK; // wrap
+    if (delta < bestDelta) {
+      bestDelta = delta;
+      bestType = b.type;
+    }
+  }
+  // Convert minutes to ms
+  return { ms: bestDelta * 60 * 1000, type: bestType };
 }
 
 const defaultArt = "https://via.placeholder.com/300x300?text=Album+Art";
@@ -56,6 +98,7 @@ export default function OSSPlayer() {
   const [countdown, setCountdown] = useState<string>("");
   const [currentStation, setCurrentStation] = useState<"main" | "live">("main");
   const [status, setStatus] = useState<string>("");
+  const liveSuppressUntilRef = useRef<number>(0); // ms timestamp when we can try live again
 
   // Fetch metadata
   useEffect(() => {
@@ -81,29 +124,89 @@ export default function OSSPlayer() {
     return () => clearInterval(interval);
   }, [currentStation]);
 
-  // Countdown logic
+  // Countdown and schedule-based station switching (EST)
   useEffect(() => {
-    function updateCountdown() {
-      const now = new Date();
-      const nextShowTimeEST = getNextShowTimeInEST();
-      if (isShowTime()) {
-        setCurrentStation("live");
+    function update() {
+      const liveScheduled = isLiveNowEST();
+      const nowMs = Date.now();
+      const canUseLive = liveScheduled && nowMs >= liveSuppressUntilRef.current;
+      setCurrentStation(prev => (canUseLive ? "live" : "main"));
+      if (canUseLive) {
         setCountdown("Live Now!");
       } else {
-        setCurrentStation("main");
-        const timeUntilShow = nextShowTimeEST.getTime() - now.getTime();
-        const totalSeconds = Math.floor(timeUntilShow / 1000);
-        const days = Math.floor(totalSeconds / (60 * 60 * 24));
-        const hours = Math.floor((totalSeconds / (60 * 60)) % 24);
-        const minutes = Math.floor((totalSeconds / 60) % 60);
+        // Compute time until next live start
+        const { ms, type } = msUntilNextBoundary();
+        // If next boundary is an 'end' but we're not live, find the next 'start'
+        let nextMs = ms;
+        if (type === "end") {
+          // Walk forward to the next 'start' by adding one boundary span
+          // Simpler: poll again until start; fallback to 1 minute display cadence
+          // For accurate countdown, recompute scanning only starts
+          nextMs = (function msUntilNextStart(): number {
+            const d = nowInTZ();
+            const nowWeekMins = minutesSinceWeekStart(d);
+            const WEEK = 7 * 1440;
+            let best = Number.POSITIVE_INFINITY;
+            for (const w of SHOW_WINDOWS) {
+              let delta = (w.day * 1440 + hmToMinutes(w.start)) - nowWeekMins;
+              if (delta <= 0) delta += WEEK;
+              if (delta < best) best = delta;
+            }
+            return best * 60 * 1000;
+          })();
+        }
+        const totalSeconds = Math.max(0, Math.floor(nextMs / 1000));
+        const days = Math.floor(totalSeconds / 86400);
+        const hours = Math.floor((totalSeconds % 86400) / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
         const seconds = totalSeconds % 60;
         setCountdown(`Live show in: ${days}d ${hours}h ${minutes}m ${seconds}s`);
       }
     }
-    updateCountdown();
-    const interval = setInterval(updateCountdown, 1000);
+    update();
+    const interval = setInterval(update, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  // Switch audio src when station changes and auto-resume if playing
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const wasPlaying = !audio.paused;
+    const newSrc = STREAMS[currentStation];
+    try {
+      // Update source and reload
+      audio.src = newSrc;
+      audio.load();
+      if (wasPlaying) {
+        audio.play().catch(() => {
+          setStatus("Autoplay blocked; press play to resume.");
+        });
+      }
+    } catch (e) {
+      // Ignore assignment errors
+    }
+  }, [currentStation]);
+
+  // Fallback: if live stream errors, switch to main and suppress re-try briefly
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const onError = () => {
+      if (currentStation === "live") {
+        setStatus("Live stream unavailable, falling back to main (will retry shortly).");
+        // Suppress live for 2 minutes
+        liveSuppressUntilRef.current = Date.now() + 2 * 60 * 1000;
+        setCurrentStation("main");
+      }
+    };
+    audio.addEventListener('error', onError);
+    audio.addEventListener('stalled', onError);
+    return () => {
+      audio.removeEventListener('error', onError);
+      audio.removeEventListener('stalled', onError);
+    };
+  }, [currentStation]);
 
   // Audio and visualizer logic
   useEffect(() => {
