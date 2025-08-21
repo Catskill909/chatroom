@@ -294,6 +294,49 @@ Notes:
 - Updates: simply push to Git; Coolify rebuilds and redeploys the `app` service while keeping the `mongodb_data` and `uploads` volumes intact.
 - Optional backups: schedule `mongodump` or use Coolify’s backup features for the `mongodb_data` volume.
 
+### All-in-One Single-Container (App + MongoDB)
+
+If you prefer a single container that bundles the Node app and MongoDB, use `Dockerfile.allinone` with `supervisord`.
+
+#### Local quick start
+
+```sh
+docker build -f Dockerfile.allinone -t chat-aio .
+docker run -d --name chat-aio \
+  -p 3000:3000 \
+  -v chat_db:/data/db \
+  -v chat_uploads:/app/uploads \
+  chat-aio
+
+# Verify health
+curl -s http://localhost:3000/health
+```
+
+Expected response:
+
+```json
+{ "status": "ok", "mongo": "connected" }
+```
+
+#### Coolify deployment (single Dockerfile)
+
+- New → Application → From Git → set Dockerfile path: `Dockerfile.allinone`.
+- Volumes:
+  - `/data/db` → persistent volume (MongoDB data)
+  - `/app/uploads` → persistent volume (media uploads)
+- Env: none required for Mongo; `server.js` defaults `MONGO_URI` to `mongodb://127.0.0.1:27017/chatapp` inside the container.
+- Domain → issue TLS.
+- Deploy, then open `https://your-domain/health`.
+
+Checklist after deploy:
+- Health: `{ status: "ok", mongo: "connected" }`.
+- Send a message, upload an image/audio.
+- Restart the app → messages remain (Mongo volume) and media persists (`/app/uploads` volume).
+
+Notes:
+- Use the Compose method if you want MongoDB as a separate service; use all-in-one for simplicity.
+- Retention: messages expire after 90 days via TTL index; media on disk persists until you delete it.
+
 #### Generating Self-Signed Certificates (for testing)
 
 ```sh
