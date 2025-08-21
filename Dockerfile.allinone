@@ -1,0 +1,49 @@
+# All-in-one image: Node app + MongoDB in a single container
+# Build stage
+FROM node:20-bookworm AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm install --legacy-peer-deps
+COPY . .
+RUN npm run build
+
+# Runtime stage with MongoDB + Supervisor
+FROM node:20-bookworm
+WORKDIR /app
+
+# Install dependencies: curl, ca-certificates, supervisor
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl supervisor \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install MongoDB (static binaries) into /opt/mongodb
+# Note: Using generic Linux x86_64 build; adjust version if needed.
+ENV MONGODB_VERSION=7.0.12
+RUN mkdir -p /opt/mongodb /data/db \
+    && curl -fsSL https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu2204-${MONGODB_VERSION}.tgz -o /tmp/mongodb.tgz \
+    && tar -xzf /tmp/mongodb.tgz -C /opt/mongodb --strip-components=1 \
+    && rm /tmp/mongodb.tgz \
+    && mkdir -p /var/log/supervisor
+
+ENV PATH="/opt/mongodb/bin:${PATH}"
+
+# Copy app runtime files
+COPY package*.json ./
+RUN npm install --omit=dev --legacy-peer-deps
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/server.js ./server.js
+COPY --from=builder /app/public ./public
+
+# Copy Supervisor config
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# Expose ports
+EXPOSE 3000
+
+# Volumes for persistence
+VOLUME ["/data/db", "/app/uploads"]
+
+# Default environment: server.js will default MONGO_URI to 127.0.0.1
+ENV PORT=3000
+
+CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

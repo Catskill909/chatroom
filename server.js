@@ -60,15 +60,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // --- DATABASE (MongoDB) SETUP ---
-const MONGO_URI = process.env.MONGO_URI;
+// Default to localhost for single-container (all-in-one) deployments.
+// In Compose/multi-service setups, MONGO_URI should point to the service hostname.
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/chatapp';
 
-if (MONGO_URI) {
-    mongoose.connect(MONGO_URI)
-        .then(() => console.log('Connected to MongoDB'))
-        .catch((err) => console.error('MongoDB connection error:', err));
-} else {
-    console.log('MONGO_URI not set. Using in-memory message store.');
-}
+mongoose.connect(MONGO_URI)
+    .then(() => console.log('Connected to MongoDB'))
+    .catch((err) => console.error('MongoDB connection error:', err));
 
 const messageSchema = new mongoose.Schema({
     id: { type: String, required: true, index: true },
@@ -103,18 +101,16 @@ const userSchema = new mongoose.Schema({
 }, { versionKey: false, timestamps: true });
 
 const User = (mongoose.models && mongoose.models.User) || mongoose.model('User', userSchema);
-if (MONGO_URI) {
-    mongoose.connection.once('open', async () => {
-        try {
-            await Message.syncIndexes();
-            console.log('Message indexes synced');
-            await User.syncIndexes();
-            console.log('User indexes synced');
-        } catch (e) {
-            console.error('Error syncing Message indexes:', e);
-        }
-    });
-}
+mongoose.connection.once('open', async () => {
+    try {
+        await Message.syncIndexes();
+        console.log('Message indexes synced');
+        await User.syncIndexes();
+        console.log('User indexes synced');
+    } catch (e) {
+        console.error('Error syncing Message indexes:', e);
+    }
+});
 // --- END DATABASE SETUP ---
 
 // --- AUDIO & COVER UPLOAD SETUP ---
