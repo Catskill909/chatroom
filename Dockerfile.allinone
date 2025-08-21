@@ -12,8 +12,13 @@ FROM node:20-jammy
 WORKDIR /app
 
 # Install dependencies: curl, ca-certificates, supervisor
+# Plus MongoDB runtime libs commonly required by the tarball on Ubuntu Jammy
+# and netcat for simple health checks
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl supervisor \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates curl supervisor \
+        libcurl4 liblzma5 libsnappy1v5 libzstd1 libssl3 libgcc-s1 libstdc++6 \
+        netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 
 # Install MongoDB (binaries) into /opt/mongodb
@@ -49,6 +54,11 @@ COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # Expose ports
 EXPOSE 3000
+
+# Healthcheck: ensure mongod is listening and /health reports connected
+HEALTHCHECK --interval=10s --timeout=3s --start-period=25s --retries=12 \
+  CMD nc -z 127.0.0.1 27017 \
+    && curl -fsS http://127.0.0.1:3000/health | grep -q '"mongo":"connected"' || exit 1
 
 # Volumes for persistence
 VOLUME ["/data/db", "/app/uploads"]

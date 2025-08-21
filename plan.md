@@ -3,6 +3,18 @@
 ## 🎯 Project Overview
 A feature-rich, real-time chat application with advanced media sharing capabilities, built with React, TypeScript, and Node.js.
 
+## 📌 Mission: Single-Container, Single Deploy
+
+- Primary deployment target is a single Docker image built from `Dockerfile.allinone` that runs both the Node app and MongoDB under `supervisord`.
+- No platform-specific configuration required: leave `MONGO_URI` unset in this mode; `server.js` defaults to `mongodb://127.0.0.1:27017/chatapp` inside the container.
+- Health endpoint: `GET /health` → `{ status: "ok|degraded", mongo: "connected|connecting|disconnected" }`.
+- Logs to expect:
+  - Mongo: `Waiting for connections` on `127.0.0.1:27017`.
+  - App: `Connected to MongoDB` and `[Mongo] Source: local default 127.0.0.1`.
+- The all-in-one Dockerfile auto-detects CPU (amd64/arm64) and downloads the matching MongoDB binary.
+
+Secondary mode (optional): `docker-compose.coolify.yml` with separate `mongodb` and `app` services for teams preferring externalized DB and explicit volumes.
+
 ## 🚀 Current Status
 
 ### ✅ Implemented Features

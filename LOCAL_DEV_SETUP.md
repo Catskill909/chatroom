@@ -12,6 +12,12 @@
 - If you ever see the UI but no chat/users, check your `.env` first!
 
 
+### Mission Note (Production)
+
+- Production prefers a single-container deploy using `Dockerfile.allinone` (app + MongoDB in one image).
+- For local dev, you typically run Mongo separately (Docker or Homebrew). Only set `MONGO_URI` when your DB is external/local. The all-in-one image does not need `MONGO_URI`.
+
+
 Follow these steps to run the chat app locally with both frontend and backend:
 
 ---

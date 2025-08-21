@@ -2,6 +2,13 @@
 
 A robust, real-time group chatroom with audio and image upload, built with React, TypeScript, Vite, shadcn-ui, and Tailwind CSS. All users see the same chat messages and user list in real time. Audio and image files are uploaded and shared instantly with modern playback and preview features.
 
+## Mission: Single-Container, Single Deploy
+
+- One Dockerfile (`Dockerfile.allinone`) builds and runs both the Node app and MongoDB in a single container.
+- Zero platform-specific configuration required: no `MONGO_URI` needed; `server.js` defaults to `mongodb://127.0.0.1:27017/chatapp` inside the container.
+- Health endpoint at `/health` reports `{ status, mongo }` where `mongo` is `connected|connecting|disconnected`.
+- Logs show both processes under Supervisor: look for `mongod ... Waiting for connections` and `Connected to MongoDB` from the app.
+
 ## Features
 
 - Real-time chat with instant message delivery
@@ -333,9 +340,28 @@ Checklist after deploy:
 - Send a message, upload an image/audio.
 - Restart the app → messages remain (Mongo volume) and media persists (`/app/uploads` volume).
 
+#### Troubleshooting (All-in-One Mongo)
+
+- Check logs:
+  - Mongo: `Waiting for connections` on `127.0.0.1:27017`.
+  - App: `Connected to MongoDB` and `[Mongo] Source: local default 127.0.0.1`.
+- If `ECONNREFUSED 127.0.0.1:27017`:
+  - Ensure `MONGO_URI` is not set to a different host; leaving it unset uses localhost.
+  - Verify `/data/db` is writable (if using volumes, ensure mounts are correct or temporarily disable them to test).
+  - On ARM hosts, the all-in-one image auto-selects the correct MongoDB binary (aarch64) — no extra steps needed.
+  - The image installs required MongoDB runtime libs (libcurl4, liblzma5, libsnappy1v5, libzstd1, libssl3, libgcc-s1). If you built before 2025-08-21, rebuild to include these.
+  - In the container shell, verify the binary and dependencies:
+    - `ldd /opt/mongodb/bin/mongod` (check for “not found”)
+    - `/opt/mongodb/bin/mongod --version`
+    - `nc -z 127.0.0.1 27017 || true` (returns 0 when mongod is listening)
+  - Redeploy and re-check `/health`.
+
+If `/health` shows `{ "status": "ok", "mongo": "connecting" }` for more than ~30s, mongod likely failed to start. Collect logs (mongod + app) and confirm the above dependency checks.
+
 Notes:
 - Use the Compose method if you want MongoDB as a separate service; use all-in-one for simplicity.
 - Retention: messages expire after 90 days via TTL index; media on disk persists until you delete it.
+- The all-in-one image auto-detects CPU (amd64/arm64) and downloads the matching MongoDB binary; no platform-specific config.
 
 #### Generating Self-Signed Certificates (for testing)
 
