@@ -61,7 +61,8 @@ export const Chatroom = () => {
   // User state
   const [currentUser, setCurrentUser] = useLocalStorage<string>('username', '');
   const [userAvatar, setUserAvatar] = useLocalStorage<string | null>('userAvatar', null);
-  const [showUsernameModal, setShowUsernameModal] = useState(true);
+  // Show username modal only when there's no persisted username
+  const [showUsernameModal, setShowUsernameModal] = useState(() => !Boolean(currentUser));
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   
   // Chat state
@@ -87,6 +88,7 @@ export const Chatroom = () => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const renameAttemptRef = useRef<{ from: string; to: string } | null>(null);
+  const joinRetryRef = useRef<number>(0);
 
   // Initialize socket connection
   useEffect(() => {
@@ -194,6 +196,11 @@ export const Chatroom = () => {
         setUserAvatar(currentUserData.avatar);
         userRef.current = { ...userRef.current, avatar: currentUserData.avatar };
       }
+
+      // If we can see ourselves in presence, consider join successful -> reset retry counter
+      if (currentUser && usersWithOnlineStatus.some(u => u.username === currentUser)) {
+        joinRetryRef.current = 0;
+      }
     };
 
     const handleMessage = (msg: any) => {
@@ -222,9 +229,29 @@ export const Chatroom = () => {
         setMessages(prev => prev.map(m => m.username === to ? { ...m, username: from } : m));
         return;
       }
+      // Initial join failed (likely name taken). Retry a few times in case of stale presence before forcing rename.
+      const attempts = joinRetryRef.current;
+      if (attempts < 3 && userRef.current.username) {
+        joinRetryRef.current = attempts + 1;
+        toast({
+          title: "Retrying join",
+          description: `Username in use, retrying (${joinRetryRef.current}/3)...`,
+        });
+        setTimeout(() => {
+          try {
+            let avatarForJoin = userRef.current.avatar;
+            if (avatarForJoin && (avatarForJoin as string).length > 50000) {
+              avatarForJoin = null;
+            }
+            socketInstance.emit('join', { username: userRef.current.username, avatar: avatarForJoin });
+          } catch {}
+        }, 1500);
+        return;
+      }
+      // Exhausted retries -> prompt for a different name
       toast({ 
         title: "Username Error", 
-        description: err.message, 
+        description: err.message || 'Please choose a different username.', 
         variant: "destructive" 
       });
       setShowUsernameModal(true);
@@ -277,18 +304,9 @@ export const Chatroom = () => {
     userRef.current = { username: currentUser, avatar: userAvatar };
   }, [currentUser, userAvatar]);
 
-  // Show username modal if no current user
+  // Keep modal visibility in sync with presence of a username
   useEffect(() => {
-    if (!currentUser) {
-      setShowUsernameModal(true);
-    }
-  }, [currentUser]);
-
-  // Show username modal if no current user
-  useEffect(() => {
-    if (!currentUser) {
-      setShowUsernameModal(true);
-    }
+    setShowUsernameModal(!Boolean(currentUser));
   }, [currentUser]);
 
   // Notification sound effect
