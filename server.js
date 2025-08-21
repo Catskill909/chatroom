@@ -63,10 +63,19 @@ const __dirname = path.dirname(__filename);
 // Default to localhost for single-container (all-in-one) deployments.
 // In Compose/multi-service setups, MONGO_URI should point to the service hostname.
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/chatapp';
+const USING_ENV_MONGO = Boolean(process.env.MONGO_URI);
+console.log(`[Mongo] Source: ${USING_ENV_MONGO ? 'env MONGO_URI' : 'local default 127.0.0.1'}`);
 
-mongoose.connect(MONGO_URI)
-    .then(() => console.log('Connected to MongoDB'))
-    .catch((err) => console.error('MongoDB connection error:', err));
+async function connectWithRetry() {
+    try {
+        await mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 5000 });
+        console.log('Connected to MongoDB');
+    } catch (err) {
+        console.error('MongoDB connection error:', err.message || err);
+        setTimeout(connectWithRetry, 3000);
+    }
+}
+connectWithRetry();
 
 const messageSchema = new mongoose.Schema({
     id: { type: String, required: true, index: true },
