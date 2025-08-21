@@ -16,14 +16,24 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl supervisor \
     && rm -rf /var/lib/apt/lists/*
 
-# Install MongoDB (static binaries) into /opt/mongodb
-# Note: Using generic Linux x86_64 build; adjust version if needed.
+# Install MongoDB (binaries) into /opt/mongodb
+# Detect architecture to fetch the correct tarball (amd64 -> x86_64, arm64 -> aarch64)
 ENV MONGODB_VERSION=7.0.12
-RUN mkdir -p /opt/mongodb /data/db \
-    && curl -fsSL https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu2204-${MONGODB_VERSION}.tgz -o /tmp/mongodb.tgz \
-    && tar -xzf /tmp/mongodb.tgz -C /opt/mongodb --strip-components=1 \
-    && rm /tmp/mongodb.tgz \
-    && mkdir -p /var/log/supervisor
+RUN set -eux; \
+    arch="$(dpkg --print-architecture)"; \
+    case "$arch" in \
+      amd64) mongo_arch="x86_64" ;; \
+      arm64) mongo_arch="aarch64" ;; \
+      *) echo "Unsupported architecture: $arch"; exit 1 ;; \
+    esac; \
+    base="ubuntu2204"; \
+    mkdir -p /opt/mongodb /data/db; \
+    url="https://fastdl.mongodb.org/linux/mongodb-linux-${mongo_arch}-${base}-${MONGODB_VERSION}.tgz"; \
+    echo "Downloading ${url}"; \
+    curl -fsSL "$url" -o /tmp/mongodb.tgz; \
+    tar -xzf /tmp/mongodb.tgz -C /opt/mongodb --strip-components=1; \
+    rm /tmp/mongodb.tgz; \
+    mkdir -p /var/log/supervisor
 
 ENV PATH="/opt/mongodb/bin:${PATH}"
 
