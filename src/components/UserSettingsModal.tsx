@@ -4,6 +4,7 @@ import { Switch } from "./ui/switch";
 import { Label } from "./ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { useState, useRef, ChangeEvent } from "react";
+import { Input } from "./ui/input";
 
 interface UserSettingsModalProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ interface UserSettingsModalProps {
   onAvatarChange: (avatar: string) => void;
   notificationsEnabled: boolean;
   onNotificationToggle: (enabled: boolean) => void;
+  onUsernameChange?: (username: string) => void;
 }
 
 export const UserSettingsModal = ({
@@ -23,9 +25,11 @@ export const UserSettingsModal = ({
   onAvatarChange,
   notificationsEnabled,
   onNotificationToggle,
+  onUsernameChange,
 }: UserSettingsModalProps) => {
   const [previewAvatar, setPreviewAvatar] = useState<string | null>(currentAvatar);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [nickname, setNickname] = useState<string>(currentUser);
 
   if (!isOpen) return null;
 
@@ -103,6 +107,14 @@ export const UserSettingsModal = ({
     }
   };
 
+  const handleDone = () => {
+    const next = nickname.trim();
+    if (next && next !== currentUser && typeof onUsernameChange === 'function') {
+      onUsernameChange(next);
+    }
+    onClose();
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div 
@@ -121,6 +133,22 @@ export const UserSettingsModal = ({
         </div>
 
         <div className="p-6 space-y-6">
+          {/* Nickname Section */}
+          <div className="space-y-2">
+            <h3 className="font-medium text-foreground">Nickname</h3>
+            <Input
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              placeholder="Enter your nickname"
+              className="bg-input border-border text-foreground"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleDone();
+                }
+              }}
+            />
+            <p className="text-xs text-muted-foreground">This name is shown to others. Changing it will take effect immediately.</p>
+          </div>
           {/* Avatar Section */}
           <div className="space-y-4">
             <h3 className="font-medium text-foreground">Profile Picture</h3>
@@ -201,7 +229,7 @@ export const UserSettingsModal = ({
         </div>
 
         <div className="p-4 border-t border-border flex justify-end">
-          <Button onClick={onClose}>Done</Button>
+          <Button onClick={handleDone}>Done</Button>
         </div>
       </div>
     </div>

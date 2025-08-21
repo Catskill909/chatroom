@@ -63,10 +63,10 @@ A feature-rich, real-time chat application with advanced media sharing capabilit
 
 ### Short-term
 - [ ] Message reactions
-- [ ] Typing indicators
 - [ ] Message read receipts
 - [ ] Message search functionality
 - [ ] Dark/light theme toggle
+ - [ ] Admin MVP (shared admin token; delete message, kick/ban, reserve usernames; preload persisted avatar/name)
 
 ### Medium-term
 - [ ] Video sharing support

@@ -16,16 +16,43 @@ const app = express();
 // Get port from environment variable or use 3000 as default
 const PORT = process.env.PORT || 3000;
 
-// Enable CORS for all HTTP requests
+// Allowed origins for CORS, configurable via environment
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '*')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+const IS_WILDCARD_ORIGIN = (ALLOWED_ORIGINS.length === 1 && ALLOWED_ORIGINS[0] === '*');
+const CORS_ORIGIN = IS_WILDCARD_ORIGIN ? '*' : ALLOWED_ORIGINS;
+const CORS_CREDENTIALS = !IS_WILDCARD_ORIGIN;
+
+// Enable CORS for HTTP requests
 app.use(cors({
-    origin: '*',
+    origin: CORS_ORIGIN,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true
+    credentials: CORS_CREDENTIALS
 }));
 
 // Handle preflight requests
 app.options('*', cors());
+
+// Simple health endpoint for container/orchestrator checks
+app.get('/health', (_req, res) => {
+    // Map mongoose readyState to human-readable
+    const mapState = (state) => {
+        switch (state) {
+            case 1: return 'connected';
+            case 2: return 'connecting';
+            case 3: return 'disconnecting';
+            case 0:
+            default: return 'disconnected';
+        }
+    };
+    const readyState = mongoose?.connection?.readyState ?? 0;
+    const mongo = mapState(readyState);
+    const status = (process.env.MONGO_URI && mongo !== 'connected') ? 'degraded' : 'ok';
+    res.status(200).json({ status, mongo });
+});
 
 // Initialize __dirname for ES modules
 import { fileURLToPath } from 'url';
@@ -231,10 +258,10 @@ if (process.env.SSL_KEY_PATH && process.env.SSL_CERT_PATH) {
     console.log('HTTP server enabled');
 }
 const io = new Server(server, {
-    cors: { 
-        origin: '*',
+    cors: {
+        origin: CORS_ORIGIN,
         methods: ['GET', 'POST'],
-        credentials: true
+        credentials: CORS_CREDENTIALS
     },
     maxHttpBufferSize: 20 * 1024 * 1024, // 20MB max payload size
     pingTimeout: 15000, // Shorter timeout to reduce presence linger

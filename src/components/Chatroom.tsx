@@ -86,6 +86,7 @@ export const Chatroom = () => {
   // Socket connection
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const renameAttemptRef = useRef<{ from: string; to: string } | null>(null);
 
   // Initialize socket connection
   useEffect(() => {
@@ -206,6 +207,21 @@ export const Chatroom = () => {
     };
 
     const handleJoinError = (err: any) => {
+      // If this was a rename attempt, revert without nuking local state
+      if (renameAttemptRef.current) {
+        const { from, to } = renameAttemptRef.current;
+        renameAttemptRef.current = null;
+        toast({
+          title: "Name change failed",
+          description: err?.message || `Could not change name to "${to}"` ,
+          variant: "destructive",
+        });
+        // Revert username and messages
+        setCurrentUser(from);
+        userRef.current = { username: from, avatar: userRef.current.avatar };
+        setMessages(prev => prev.map(m => m.username === to ? { ...m, username: from } : m));
+        return;
+      }
       toast({ 
         title: "Username Error", 
         description: err.message, 
@@ -343,6 +359,35 @@ export const Chatroom = () => {
       )
     );
   }, [currentUser, setUserAvatar]);
+
+  // Handle nickname change from settings
+  const handleUsernameChange = useCallback((nextName: string) => {
+    const newName = nextName.trim();
+    if (!newName || newName === currentUser) return;
+
+    const from = currentUser;
+    const to = newName;
+    renameAttemptRef.current = { from, to };
+
+    // Optimistically update local state
+    setCurrentUser(to);
+    userRef.current = { username: to, avatar: userRef.current.avatar };
+    setMessages(prev => prev.map(m => m.username === from ? { ...m, username: to } : m));
+
+    // Emit join with new username (server will replace mapping for this socket)
+    if (socket?.connected) {
+      let avatarForJoin = userRef.current.avatar;
+      if (avatarForJoin && avatarForJoin.length > 50000) {
+        avatarForJoin = null;
+      }
+      socket.emit('join', { username: to, avatar: avatarForJoin });
+    }
+
+    toast({
+      title: "Nickname updated",
+      description: `You're now known as ${to}`,
+    });
+  }, [currentUser, setCurrentUser, socket, toast]);
 
   const handleUsernameSubmit = (username: string, avatarBase64?: string) => {
     setCurrentUser(username);
@@ -539,6 +584,7 @@ export const Chatroom = () => {
         onAvatarChange={handleAvatarChange}
         notificationsEnabled={notificationsEnabled}
         onNotificationToggle={setNotificationsEnabled}
+        onUsernameChange={handleUsernameChange}
       />
 
       {/* Mobile Drawer */}
