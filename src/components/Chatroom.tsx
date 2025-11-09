@@ -64,24 +64,24 @@ export const Chatroom = () => {
   // Show username modal only when there's no persisted username
   const [showUsernameModal, setShowUsernameModal] = useState(() => !Boolean(currentUser));
   const [showSettingsModal, setShowSettingsModal] = useState(false);
-  
+
   // Chat state
   const [messages, setMessages] = useState<Message[]>([]);
   const [users, setUsers] = useState<ChatUser[]>([]);
-  
+
   // Notification settings
   const [notificationsEnabled, setNotificationsEnabled] = useLocalStorage<boolean>('notificationEnabled', true);
-  
+
   // Refs
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const isInitialMount = useRef(true);
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioBufferRef = useRef<AudioBuffer | null>(null);
-  
+
   // Store user info in refs for reconnect logic
-  const userRef = useRef<{ username: string; avatar: string | null }>({ 
-    username: currentUser, 
-    avatar: userAvatar 
+  const userRef = useRef<{ username: string; avatar: string | null }>({
+    username: currentUser,
+    avatar: userAvatar
   });
 
   // Socket connection
@@ -139,7 +139,7 @@ export const Chatroom = () => {
           console.warn('[socket] Avatar too large for join, sending without avatar');
           avatarForJoin = null;
         }
-        
+
         socketInstance.emit("join", {
           username: userRef.current.username,
           avatar: avatarForJoin,
@@ -179,16 +179,16 @@ export const Chatroom = () => {
         username: u.username,
         avatar: u.avatar ? 'has-avatar' : 'no-avatar'
       })));
-      
+
       // Ensure all users have isOnline property set
       const usersWithOnlineStatus = usersList.map(user => ({
         ...user,
         isOnline: user.isOnline ?? true // Default to true if not specified
       }));
-      
+
       // Update users list
       setUsers(usersWithOnlineStatus);
-      
+
       // Update the current user's avatar from the server if it's different
       const currentUserData = usersWithOnlineStatus.find(u => u.username === currentUser);
       if (currentUserData?.avatar && currentUserData.avatar !== userAvatar) {
@@ -220,7 +220,7 @@ export const Chatroom = () => {
         renameAttemptRef.current = null;
         toast({
           title: "Name change failed",
-          description: err?.message || `Could not change name to "${to}"` ,
+          description: err?.message || `Could not change name to "${to}"`,
           variant: "destructive",
         });
         // Revert username and messages
@@ -244,15 +244,15 @@ export const Chatroom = () => {
               avatarForJoin = null;
             }
             socketInstance.emit('join', { username: userRef.current.username, avatar: avatarForJoin });
-          } catch {}
+          } catch { }
         }, 1500);
         return;
       }
       // Exhausted retries -> prompt for a different name
-      toast({ 
-        title: "Username Error", 
-        description: err.message || 'Please choose a different username.', 
-        variant: "destructive" 
+      toast({
+        title: "Username Error",
+        description: err.message || 'Please choose a different username.',
+        variant: "destructive"
       });
       setShowUsernameModal(true);
       setCurrentUser("");
@@ -277,7 +277,7 @@ export const Chatroom = () => {
         if (username) {
           socketInstance.emit('leave', { username });
         }
-      } catch {}
+      } catch { }
     };
     window.addEventListener('beforeunload', beforeUnloadHandler);
 
@@ -292,7 +292,7 @@ export const Chatroom = () => {
       socketInstance.off('history', handleHistory);
       socketInstance.off('join_error', handleJoinError);
       window.removeEventListener('beforeunload', beforeUnloadHandler);
-      
+
       // Always disconnect on unmount to avoid lingering presence
       console.log("[socket] Disconnecting...");
       socketInstance.disconnect();
@@ -320,7 +320,7 @@ export const Chatroom = () => {
       try {
         if (!audioContextRef.current) {
           audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-          
+
           try {
             const response = await fetch('/notification.mp3');
             const arrayBuffer = await response.arrayBuffer();
@@ -333,13 +333,13 @@ export const Chatroom = () => {
 
         const audioContext = audioContextRef.current;
         const audioBuffer = audioBufferRef.current;
-        
+
         if (!audioBuffer) return;
-        
+
         if (audioContext.state === 'suspended') {
           await audioContext.resume();
         }
-        
+
         const source = audioContext.createBufferSource();
         source.buffer = audioBuffer;
         source.connect(audioContext.destination);
@@ -362,17 +362,17 @@ export const Chatroom = () => {
   // Handle avatar change - SIMPLIFIED VERSION
   const handleAvatarChange = useCallback((avatar: string) => {
     if (!currentUser) return;
-    
+
     // Update local state only
     const newAvatar = avatar || null;
     setUserAvatar(newAvatar);
     userRef.current = { ...userRef.current, avatar: newAvatar };
-    
+
     // Update messages with new avatar
-    setMessages(prevMessages => 
-      prevMessages.map(msg => 
-        msg.username === currentUser 
-          ? { ...msg, avatar: newAvatar || undefined } 
+    setMessages(prevMessages =>
+      prevMessages.map(msg =>
+        msg.username === currentUser
+          ? { ...msg, avatar: newAvatar || undefined }
           : msg
       )
     );
@@ -419,7 +419,7 @@ export const Chatroom = () => {
         avatar: avatarBase64,
       });
     }
-    
+
     toast({
       title: "Welcome to the chatroom!",
       description: `You're now chatting as ${username}`,
@@ -536,9 +536,9 @@ export const Chatroom = () => {
       {/* Users List - Desktop */}
       {!isMobile && (
         <div className="flex-shrink-0">
-          <UsersList 
-            users={users} 
-            currentUser={currentUser} 
+          <UsersList
+            users={users}
+            currentUser={currentUser}
             onSettingsClick={() => setShowSettingsModal(true)}
           />
         </div>
@@ -608,9 +608,9 @@ export const Chatroom = () => {
       {/* Mobile Drawer */}
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
         <SheetContent side="left" className="w-80 p-0">
-          <UsersList 
-            users={users} 
-            currentUser={currentUser} 
+          <UsersList
+            users={users}
+            currentUser={currentUser}
             onSettingsClick={() => setShowSettingsModal(true)}
           />
         </SheetContent>
