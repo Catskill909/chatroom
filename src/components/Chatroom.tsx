@@ -94,16 +94,15 @@ export const Chatroom = () => {
   useEffect(() => {
     // Determine backend socket URL for dev/prod
     let url = '';
-    
-    // If we have VITE_SOCKET_URL set, but it's localhost and we're NOT in dev mode, ignore it
-    if (import.meta.env.VITE_SOCKET_URL && 
-        (import.meta.env.DEV || !import.meta.env.VITE_SOCKET_URL.includes('localhost'))) {
+    if (import.meta.env.VITE_SOCKET_URL && !import.meta.env.VITE_SOCKET_URL.includes('localhost')) {
+      // Use VITE_SOCKET_URL only if it's not localhost
       url = import.meta.env.VITE_SOCKET_URL;
     } else if (import.meta.env.DEV) {
+      // Development mode - use localhost
       url = 'http://localhost:3000';
     } else {
-      // In production, use same origin as frontend
-      url = `${window.location.protocol}//${window.location.hostname}${window.location.port ? ':' + window.location.port : ''}`;
+      // Production mode - use current domain
+      url = `${window.location.protocol}//${window.location.hostname}`;
     }
     const socketInstance = io(url, {
       autoConnect: true,
