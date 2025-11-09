@@ -94,6 +94,36 @@ The chat supports audio and image sharing with the following features:
 - If `.env` is missing or blank, the frontend will NOT connect to the backend. You will see the interface but no users or messages.
 - If you ever see the UI but no chat/users, check your `.env` first!
 
+### 🔧 Production WebSocket Fix (November 2025)
+
+**Issue:** The app was connecting to `ws://localhost:3000` in production instead of the production domain, causing WebSocket connection failures.
+
+**Root Cause:** The local development environment variable `VITE_SOCKET_URL=http://localhost:3000` was being picked up by the production build process (Coolify), resulting in hardcoded localhost URLs in the production bundle.
+
+**Solution:** Modified the Socket.IO client logic in `src/components/Chatroom.tsx` to intelligently handle localhost URLs:
+
+```typescript
+// Smart URL detection for dev/prod
+if (import.meta.env.VITE_SOCKET_URL && !import.meta.env.VITE_SOCKET_URL.includes('localhost')) {
+  // Use VITE_SOCKET_URL only if it's not localhost
+  url = import.meta.env.VITE_SOCKET_URL;
+} else if (import.meta.env.DEV) {
+  // Development mode - use localhost
+  url = 'http://localhost:3000';
+} else {
+  // Production mode - auto-detect current domain
+  url = `${window.location.protocol}//${window.location.hostname}`;
+}
+```
+
+**Result:** 
+- ✅ Local development still uses `localhost:3000` 
+- ✅ Production automatically detects and uses the current domain (e.g., `https://chat.supersoul.top`)
+- ✅ No environment variable changes needed in deployment platforms
+- ✅ Backward compatible with existing setups
+
+**Prevention:** This fix ensures the app will always work correctly regardless of what `VITE_SOCKET_URL` is set to in the build environment.
+
 ---
 
 ## Developer Quickstart Checklist
