@@ -280,7 +280,7 @@ export const Chatroom = () => {
     socketInstance.on('history', handleHistory);
     socketInstance.on('join_error', handleJoinError);
 
-    const handleAdminLoginResult = (payload: any) => {
+      const handleAdminLoginResult = (payload: any) => {
       const ok = Boolean(payload?.success);
       setAdminSubmitting(false);
       if (ok) {
@@ -293,6 +293,8 @@ export const Chatroom = () => {
           duration: 3000
         });
       } else {
+        // Clear saved credentials on failed login
+        localStorage.removeItem('adminRemembered');
         const errorMsg = payload?.error || 'Invalid admin password. Please try again.';
         setAdminError(errorMsg);
         toast({ 
@@ -307,6 +309,7 @@ export const Chatroom = () => {
     const handleAdminLogoutResult = () => {
       setIsAdmin(false);
       setAdminError(undefined);
+      localStorage.removeItem('adminRemembered');
       toast({ 
         title: 'Admin Mode Disabled', 
         description: 'You have logged out of admin mode.',
@@ -384,6 +387,46 @@ export const Chatroom = () => {
     };
   }, [currentUser, userAvatar, toast]);
 
+  const handleAdminLogin = useCallback((password: string, rememberMe: boolean = false) => {
+    if (!socket?.connected) {
+      setAdminError('Not connected to server');
+      toast({ title: 'Not connected', description: 'Connect to the server first.', variant: 'destructive' });
+      return;
+    }
+    setAdminSubmitting(true);
+    setAdminError(undefined);
+    
+    // Store password if Remember Me is checked (base64 encoded for basic obfuscation)
+    if (rememberMe) {
+      try {
+        const encoded = btoa(password);
+        localStorage.setItem('adminRemembered', encoded);
+      } catch (e) {
+        console.error('Failed to save admin credentials:', e);
+      }
+    } else {
+      localStorage.removeItem('adminRemembered');
+    }
+    
+    socket.emit('admin:login', { password });
+  }, [socket, toast]);
+
+  // Auto-login if credentials are saved
+  useEffect(() => {
+    if (!socket?.connected || isAdmin) return;
+    
+    try {
+      const saved = localStorage.getItem('adminRemembered');
+      if (saved) {
+        const password = atob(saved);
+        handleAdminLogin(password, true);
+      }
+    } catch (e) {
+      console.error('Failed to restore admin session:', e);
+      localStorage.removeItem('adminRemembered');
+    }
+  }, [socket?.connected, isAdmin, handleAdminLogin]);
+
   useEffect(() => {
     if (!isConnected) {
       setIsAdmin(false);
@@ -408,18 +451,8 @@ export const Chatroom = () => {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [isAdmin]);
 
-  const handleAdminLogin = useCallback((password: string) => {
-    if (!socket?.connected) {
-      setAdminError('Not connected to server');
-      toast({ title: 'Not connected', description: 'Connect to the server first.', variant: 'destructive' });
-      return;
-    }
-    setAdminSubmitting(true);
-    setAdminError(undefined);
-    socket.emit('admin:login', { password });
-  }, [socket, toast]);
-
   const handleAdminLogout = useCallback(() => {
+    localStorage.removeItem('adminRemembered');
     if (!socket?.connected) {
       setIsAdmin(false);
       return;

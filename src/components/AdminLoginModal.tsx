@@ -8,7 +8,7 @@ import { Shield, AlertCircle, Loader2, Eye, EyeOff } from "lucide-react";
 interface AdminLoginModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (password: string) => void;
+  onSubmit: (password: string, rememberMe: boolean) => void;
   isSubmitting?: boolean;
   error?: string;
 }
@@ -17,6 +17,7 @@ export const AdminLoginModal = ({ isOpen, onClose, onSubmit, isSubmitting, error
   const [password, setPassword] = useState("");
   const [shake, setShake] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   useEffect(() => {
     if (error) {
@@ -37,7 +38,7 @@ export const AdminLoginModal = ({ isOpen, onClose, onSubmit, isSubmitting, error
   const handleSubmit = () => {
     const pwd = password.trim();
     if (!pwd) return;
-    onSubmit(pwd);
+    onSubmit(pwd, rememberMe);
   };
 
   return (
@@ -91,6 +92,19 @@ export const AdminLoginModal = ({ isOpen, onClose, onSubmit, isSubmitting, error
                 )}
               </button>
             </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              id="remember-me"
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="h-4 w-4 rounded border-border bg-input text-yellow-600 focus:ring-yellow-500 focus:ring-offset-0"
+            />
+            <Label htmlFor="remember-me" className="text-sm text-muted-foreground cursor-pointer">
+              Remember me (stay logged in)
+            </Label>
           </div>
 
           <div className="flex gap-2 pt-2">
