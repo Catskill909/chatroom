@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Shield, AlertCircle, Loader2 } from "lucide-react";
+import { Shield, AlertCircle, Loader2, Eye, EyeOff } from "lucide-react";
 
 interface AdminLoginModalProps {
   isOpen: boolean;
@@ -16,6 +16,7 @@ interface AdminLoginModalProps {
 export const AdminLoginModal = ({ isOpen, onClose, onSubmit, isSubmitting, error }: AdminLoginModalProps) => {
   const [password, setPassword] = useState("");
   const [shake, setShake] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (error) {
@@ -64,17 +65,32 @@ export const AdminLoginModal = ({ isOpen, onClose, onSubmit, isSubmitting, error
             <Label htmlFor="admin-password" className="text-foreground font-medium">
               Password
             </Label>
-            <Input
-              id="admin-password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="bg-input border-border text-foreground transition-colors focus:border-yellow-500 focus:ring-yellow-500/20"
-              onKeyDown={(e) => (e.key === "Enter" ? handleSubmit() : undefined)}
-              autoFocus
-              disabled={isSubmitting}
-            />
+            <div className="relative">
+              <Input
+                id="admin-password"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="bg-input border-border text-foreground transition-colors focus:border-yellow-500 focus:ring-yellow-500/20 pr-10"
+                onKeyDown={(e) => (e.key === "Enter" ? handleSubmit() : undefined)}
+                autoFocus
+                disabled={isSubmitting}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                disabled={isSubmitting}
+                tabIndex={-1}
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
           </div>
 
           <div className="flex gap-2 pt-2">
