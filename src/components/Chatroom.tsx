@@ -13,7 +13,9 @@ import { ChatMessage } from './ChatMessage';
 import { UsersList } from './UsersList';
 import { UsernameModal } from './UsernameModal';
 import { UserSettingsModal } from './UserSettingsModal';
+import { AdminLoginModal } from './AdminLoginModal';
 import type { ChatInputMessage } from './ChatInput';
+import { Shield } from 'lucide-react';
 
 // Custom hook for mobile detection
 const useIsMobile = () => {
@@ -57,6 +59,11 @@ export const Chatroom = () => {
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showAdminModal, setShowAdminModal] = useState(false);
+  const [adminSubmitting, setAdminSubmitting] = useState(false);
+  const [adminError, setAdminError] = useState<string | undefined>();
 
   // User state
   const [currentUser, setCurrentUser] = useLocalStorage<string>('username', '');
@@ -271,6 +278,74 @@ export const Chatroom = () => {
     socketInstance.on('history', handleHistory);
     socketInstance.on('join_error', handleJoinError);
 
+    const handleAdminLoginResult = (payload: any) => {
+      const ok = Boolean(payload?.success);
+      setAdminSubmitting(false);
+      if (ok) {
+        setIsAdmin(true);
+        setShowAdminModal(false);
+        setAdminError(undefined);
+        toast({ 
+          title: '🛡️ Admin Mode Enabled', 
+          description: 'You now have access to moderation controls.',
+          duration: 3000
+        });
+      } else {
+        const errorMsg = payload?.error || 'Invalid admin password. Please try again.';
+        setAdminError(errorMsg);
+        toast({ 
+          title: 'Authentication Failed', 
+          description: errorMsg, 
+          variant: 'destructive',
+          duration: 4000
+        });
+      }
+    };
+
+    const handleAdminLogoutResult = () => {
+      setIsAdmin(false);
+      setAdminError(undefined);
+      toast({ 
+        title: 'Admin Mode Disabled', 
+        description: 'You have logged out of admin mode.',
+        duration: 2000
+      });
+    };
+
+    const handleAdminError = (payload: any) => {
+      const msg = payload?.message || 'Admin action failed.';
+      if (msg === 'Not authorized') {
+        setIsAdmin(false);
+      }
+      toast({ title: 'Admin', description: msg, variant: 'destructive' });
+    };
+
+    const handleAdminMessageDeleted = (payload: any) => {
+      const id = payload?.messageId;
+      if (!id) return;
+      setMessages((prev) => prev.filter((m) => m.id !== id));
+      if (isAdmin) {
+        toast({ 
+          title: '✓ Message Deleted', 
+          description: 'The message has been removed.',
+          duration: 2000
+        });
+      }
+    };
+
+    const handleAdminUserKicked = (payload: any) => {
+      const name = payload?.username;
+      if (name) {
+        toast({ title: 'User kicked', description: `${name} was disconnected.` });
+      }
+    };
+
+    socketInstance.on('admin:loginResult', handleAdminLoginResult);
+    socketInstance.on('admin:logoutResult', handleAdminLogoutResult);
+    socketInstance.on('admin:error', handleAdminError);
+    socketInstance.on('admin:messageDeleted', handleAdminMessageDeleted);
+    socketInstance.on('admin:userKicked', handleAdminUserKicked);
+
     setSocket(socketInstance);
 
     // Proactively tell server we're leaving before the tab closes
@@ -294,6 +369,11 @@ export const Chatroom = () => {
       socketInstance.off('message', handleMessage);
       socketInstance.off('history', handleHistory);
       socketInstance.off('join_error', handleJoinError);
+      socketInstance.off('admin:loginResult', handleAdminLoginResult);
+      socketInstance.off('admin:logoutResult', handleAdminLogoutResult);
+      socketInstance.off('admin:error', handleAdminError);
+      socketInstance.off('admin:messageDeleted', handleAdminMessageDeleted);
+      socketInstance.off('admin:userKicked', handleAdminUserKicked);
       window.removeEventListener('beforeunload', beforeUnloadHandler);
 
       // Always disconnect on unmount to avoid lingering presence
@@ -301,6 +381,59 @@ export const Chatroom = () => {
       socketInstance.disconnect();
     };
   }, [currentUser, userAvatar, toast]);
+
+  useEffect(() => {
+    if (!isConnected) {
+      setIsAdmin(false);
+      setAdminSubmitting(false);
+      setAdminError(undefined);
+    }
+  }, [isConnected]);
+
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'A') {
+        e.preventDefault();
+        if (!isAdmin) {
+          setShowAdminModal(true);
+        } else {
+          handleAdminLogout();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [isAdmin]);
+
+  const handleAdminLogin = useCallback((password: string) => {
+    if (!socket?.connected) {
+      setAdminError('Not connected to server');
+      toast({ title: 'Not connected', description: 'Connect to the server first.', variant: 'destructive' });
+      return;
+    }
+    setAdminSubmitting(true);
+    setAdminError(undefined);
+    socket.emit('admin:login', { password });
+  }, [socket, toast]);
+
+  const handleAdminLogout = useCallback(() => {
+    if (!socket?.connected) {
+      setIsAdmin(false);
+      return;
+    }
+    socket.emit('admin:logout');
+  }, [socket]);
+
+  const handleAdminDeleteMessage = useCallback((messageId: string) => {
+    if (!socket?.connected) return;
+    socket.emit('admin:deleteMessage', { messageId });
+  }, [socket]);
+
+  const handleAdminKickUser = useCallback((username: string) => {
+    if (!socket?.connected) return;
+    socket.emit('admin:kickUser', { username });
+  }, [socket]);
 
   // Update user ref when currentUser or userAvatar changes
   useEffect(() => {
@@ -543,6 +676,8 @@ export const Chatroom = () => {
             users={users}
             currentUser={currentUser}
             onSettingsClick={() => setShowSettingsModal(true)}
+            isAdmin={isAdmin}
+            onKickUser={handleAdminKickUser}
           />
         </div>
       )}
@@ -576,6 +711,31 @@ export const Chatroom = () => {
                 className={`${isMobile ? "h-8" : "h-12"} w-auto`}
               />
             </div>
+
+            <div className="relative">
+              <button
+                type="button"
+                aria-label={isAdmin ? 'Admin logout (Ctrl+Shift+A)' : 'Admin login (Ctrl+Shift+A)'}
+                onClick={() => {
+                  if (isAdmin) {
+                    handleAdminLogout();
+                  } else {
+                    setShowAdminModal(true);
+                  }
+                }}
+                className={`absolute right-2 top-2 h-8 w-8 flex items-center justify-center rounded-md transition-all duration-300 ${isAdmin ? 'opacity-100 bg-yellow-500/20 hover:bg-yellow-500/30' : 'opacity-0 hover:opacity-100 focus:opacity-100 hover:bg-accent/40'}`}
+              >
+                <Shield className={`h-4 w-4 transition-all ${isAdmin ? 'text-yellow-500 animate-pulse' : 'text-muted-foreground'}`} />
+              </button>
+              {isAdmin && (
+                <div className="absolute right-2 top-11 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <span className="text-[10px] font-semibold text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded-full border border-yellow-500/20">
+                    ADMIN
+                  </span>
+                </div>
+              )}
+            </div>
+
             {isMobile && <div className="h-8 w-8" style={{ visibility: 'hidden' }} />}
           </div>
         </div>
@@ -585,7 +745,13 @@ export const Chatroom = () => {
           {/* Messages List */}
           <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 gap-4 flex flex-col-reverse">
             {messages.slice().reverse().map((message) => (
-              <ChatMessage key={message.id} message={message} currentUser={currentUser} />
+              <ChatMessage
+                key={message.id}
+                message={message}
+                currentUser={currentUser}
+                isAdmin={isAdmin}
+                onDeleteMessage={handleAdminDeleteMessage}
+              />
             ))}
           </div>
 
@@ -615,9 +781,19 @@ export const Chatroom = () => {
             users={users}
             currentUser={currentUser}
             onSettingsClick={() => setShowSettingsModal(true)}
+            isAdmin={isAdmin}
+            onKickUser={handleAdminKickUser}
           />
         </SheetContent>
       </Sheet>
+
+      <AdminLoginModal
+        isOpen={showAdminModal}
+        onClose={() => { setShowAdminModal(false); setAdminSubmitting(false); setAdminError(undefined); }}
+        onSubmit={handleAdminLogin}
+        isSubmitting={adminSubmitting}
+        error={adminError}
+      />
     </div>
   );
 };

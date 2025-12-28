@@ -1,13 +1,28 @@
-import { Settings } from "lucide-react";
+import { Settings, UserX } from "lucide-react";
 import { ChatUser } from "./UsersList";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useState } from "react";
 
 interface UserCardProps {
   user: ChatUser;
   isCurrentUser: boolean;
   onSettingsClick?: () => void;
+  isAdmin?: boolean;
+  onKickUser?: (username: string) => void;
 }
 
-export const UserCard = ({ user, isCurrentUser, onSettingsClick }: UserCardProps) => {
+export const UserCard = ({ user, isCurrentUser, onSettingsClick, isAdmin, onKickUser }: UserCardProps) => {
+  const [kickOpen, setKickOpen] = useState(false);
+
   return (
     <div className={`flex items-center justify-between p-2 rounded-lg transition-colors hover:bg-accent ${
       isCurrentUser ? 'bg-chat-bubble-own' : ''
@@ -42,15 +57,52 @@ export const UserCard = ({ user, isCurrentUser, onSettingsClick }: UserCardProps
         </div>
       </div>
       
-      {isCurrentUser && onSettingsClick && (
-        <button 
-          onClick={onSettingsClick}
-          className="p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
-          aria-label="User settings"
-        >
-          <Settings className="w-4 h-4" />
-        </button>
-      )}
+      <div className="flex items-center gap-1">
+        {isAdmin && !isCurrentUser && onKickUser && (
+          <>
+            <button
+              type="button"
+              onClick={() => setKickOpen(true)}
+              className="p-1.5 rounded-full text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-all hover:scale-110 group"
+              aria-label="Kick user (Admin)"
+              title="Kick user from chat"
+            >
+              <UserX className="w-4 h-4 group-hover:animate-pulse" />
+            </button>
+
+            <AlertDialog open={kickOpen} onOpenChange={setKickOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Kick {user.username}?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will disconnect the user from the chat.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => {
+                      onKickUser(user.username);
+                    }}
+                  >
+                    Kick
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </>
+        )}
+
+        {isCurrentUser && onSettingsClick && (
+          <button 
+            onClick={onSettingsClick}
+            className="p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+            aria-label="User settings"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
+        )}
+      </div>
     </div>
   );
 };

@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { User, ExternalLink } from "lucide-react";
+import { User, ExternalLink, Trash2 } from "lucide-react";
 import AudioPlayer, { RHAP_UI } from "react-h5-audio-player";
 import "react-h5-audio-player/lib/styles.css";
 import "@/components/audio-player-dark.css";
@@ -8,6 +8,16 @@ import "@/components/audio-player-fullwidth.css";
 import { MagnifierIcon } from "@/components/ui/MagnifierIcon";
 import { ImageModal } from "@/components/ui/ImageModal";
 import { LinkPreview } from "./LinkPreview";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export interface Message {
   id: string;
@@ -28,9 +38,11 @@ export interface Message {
 interface ChatMessageProps {
   message: Message;
   currentUser: string;
+  isAdmin?: boolean;
+  onDeleteMessage?: (messageId: string) => void;
 }
 
-export const ChatMessage = ({ message, currentUser }: ChatMessageProps) => {
+export const ChatMessage = ({ message, currentUser, isAdmin, onDeleteMessage }: ChatMessageProps) => {
   const isOwn = message.username === currentUser;
 
   // Modal state for image preview
@@ -38,6 +50,8 @@ export const ChatMessage = ({ message, currentUser }: ChatMessageProps) => {
 
   // State to trigger re-render every minute
   const [, setNow] = useState(Date.now());
+
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -95,7 +109,41 @@ export const ChatMessage = ({ message, currentUser }: ChatMessageProps) => {
             <span className="text-xs text-white/70">
               {truncateTimeUnits(formatDistanceToNow(msgDate, { addSuffix: true }))}
             </span>
+
+            {isAdmin && onDeleteMessage && (
+              <button
+                type="button"
+                aria-label="Delete message (Admin)"
+                className="ml-auto inline-flex items-center justify-center h-7 w-7 rounded-md hover:bg-red-500/20 text-white/50 hover:text-red-400 transition-all hover:scale-110 group"
+                onClick={() => setDeleteOpen(true)}
+              >
+                <Trash2 className="h-4 w-4 group-hover:animate-pulse" />
+              </button>
+            )}
           </div>
+
+          {isAdmin && onDeleteMessage && (
+            <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete message?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will remove the message for everyone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => {
+                      onDeleteMessage(message.id);
+                    }}
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
 
           {/* Audio Message Rendering */}
           {message.audio && (

@@ -287,6 +287,71 @@ const io = new Server(server, {
 let users = {};
 let messages = [];
 
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
+const ADMIN_SESSION_TIMEOUT_MS = Number(process.env.ADMIN_SESSION_TIMEOUT_MS || 60 * 60 * 1000);
+const adminSessions = new Map();
+const loginAttempts = new Map();
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOGIN_ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
+
+function logAdminAction(socketId, action, details = {}) {
+    const timestamp = new Date().toISOString();
+    console.log(`[ADMIN ACTION] ${timestamp} | Socket: ${socketId} | Action: ${action} | Details:`, JSON.stringify(details));
+}
+
+function checkRateLimit(socketId) {
+    const now = Date.now();
+    const attempts = loginAttempts.get(socketId) || { count: 0, firstAttempt: now };
+    
+    if (now - attempts.firstAttempt > LOGIN_ATTEMPT_WINDOW_MS) {
+        loginAttempts.set(socketId, { count: 1, firstAttempt: now });
+        return true;
+    }
+    
+    if (attempts.count >= MAX_LOGIN_ATTEMPTS) {
+        return false;
+    }
+    
+    loginAttempts.set(socketId, { count: attempts.count + 1, firstAttempt: attempts.firstAttempt });
+    return true;
+}
+
+function isSocketAdmin(socket) {
+    const sess = adminSessions.get(socket.id);
+    return Boolean(sess && typeof sess.expiresAt === 'number' && sess.expiresAt > Date.now());
+}
+
+function setSocketAdmin(socket) {
+    adminSessions.set(socket.id, { expiresAt: Date.now() + ADMIN_SESSION_TIMEOUT_MS });
+}
+
+function clearSocketAdmin(socket) {
+    adminSessions.delete(socket.id);
+}
+
+async function safeUnlinkIfExists(filePath) {
+    try {
+        await fs.promises.unlink(filePath);
+        return true;
+    } catch (e) {
+        if (e && e.code === 'ENOENT') return false;
+        console.error('[admin] file delete error:', e);
+        return false;
+    }
+}
+
+function tryResolveUploadPath(urlPath) {
+    if (!urlPath || typeof urlPath !== 'string') return null;
+    if (!urlPath.startsWith('/uploads/')) return null;
+
+    const safeRel = urlPath.replace(/\?.*$/, '');
+    const abs = path.join(__dirname, safeRel);
+    const norm = path.normalize(abs);
+    const uploadsRoot = path.normalize(path.join(__dirname, 'uploads'));
+    if (!norm.startsWith(uploadsRoot)) return null;
+    return norm;
+}
+
 io.on('connection', (socket) => {
     console.log(`[connect] ${socket.id}`);
 
@@ -398,11 +463,120 @@ io.on('connection', (socket) => {
         console.log(`[emit] broadcasted message to all clients`);
     });
 
+    socket.on('admin:login', async ({ password }) => {
+        if (!checkRateLimit(socket.id)) {
+            socket.emit('admin:loginResult', { success: false, error: 'Too many login attempts. Try again in 15 minutes.' });
+            logAdminAction(socket.id, 'LOGIN_RATE_LIMITED');
+            return;
+        }
+        
+        const pwd = typeof password === 'string' ? password : '';
+        const ok = Boolean(ADMIN_PASSWORD) && pwd === ADMIN_PASSWORD;
+        
+        if (ok) {
+            setSocketAdmin(socket);
+            loginAttempts.delete(socket.id);
+            logAdminAction(socket.id, 'LOGIN_SUCCESS');
+        } else {
+            logAdminAction(socket.id, 'LOGIN_FAILED');
+        }
+        
+        socket.emit('admin:loginResult', { success: ok });
+    });
+
+    socket.on('admin:logout', async () => {
+        clearSocketAdmin(socket);
+        logAdminAction(socket.id, 'LOGOUT');
+        socket.emit('admin:logoutResult', { success: true });
+    });
+
+    socket.on('admin:deleteMessage', async ({ messageId }) => {
+        if (!isSocketAdmin(socket)) {
+            socket.emit('admin:error', { message: 'Not authorized' });
+            return;
+        }
+
+        const id = typeof messageId === 'string' ? messageId : '';
+        if (!id) {
+            socket.emit('admin:error', { message: 'Invalid messageId' });
+            return;
+        }
+
+        const msg = messages.find((m) => m && m.id === id);
+        try {
+            if (mongoose.connection.readyState === 1) {
+                await Message.deleteOne({ id });
+            }
+        } catch (e) {
+            console.error('[admin] DB delete error:', e);
+        }
+
+        messages = messages.filter((m) => !(m && m.id === id));
+
+        try {
+            const audioPath = tryResolveUploadPath(msg?.audio);
+            if (audioPath) {
+                await safeUnlinkIfExists(audioPath);
+            }
+            const coverPath = tryResolveUploadPath(msg?.audioMeta?.coverUrl);
+            if (coverPath) {
+                await safeUnlinkIfExists(coverPath);
+            }
+            const imagePath = tryResolveUploadPath(msg?.image);
+            if (imagePath) {
+                await safeUnlinkIfExists(imagePath);
+            }
+        } catch (e) {
+            console.error('[admin] cleanup error:', e);
+        }
+
+        logAdminAction(socket.id, 'DELETE_MESSAGE', { messageId: id, username: msg?.username });
+        io.emit('admin:messageDeleted', { messageId: id });
+    });
+
+    socket.on('admin:kickUser', async ({ username }) => {
+        if (!isSocketAdmin(socket)) {
+            socket.emit('admin:error', { message: 'Not authorized' });
+            return;
+        }
+
+        const name = typeof username === 'string' ? username : '';
+        if (!name) {
+            socket.emit('admin:error', { message: 'Invalid username' });
+            return;
+        }
+
+        const socketIdsToKick = Object.entries(users)
+            .filter(([, u]) => u && u.username === name)
+            .map(([id]) => id);
+
+        for (const id of socketIdsToKick) {
+            try {
+                const s = io.sockets.sockets.get(id);
+                if (s) {
+                    clearSocketAdmin(s);
+                    s.disconnect(true);
+                }
+            } catch (e) {
+                console.error('[admin] kick error:', e);
+            }
+        }
+
+        for (const id of socketIdsToKick) {
+            delete users[id];
+        }
+        const uniqueUsers = Object.values(users).filter((u, i, arr) => arr.findIndex(other => other.username === u.username) === i);
+        io.emit('users', uniqueUsers);
+        logAdminAction(socket.id, 'KICK_USER', { username: name, socketsKicked: socketIdsToKick.length });
+        io.emit('admin:userKicked', { username: name });
+    });
+
     socket.on('disconnect', async () => {
         const userInfo = users[socket.id];
         if (userInfo) {
             console.log(`[disconnect] ${userInfo.username} (${socket.id})`);
             delete users[socket.id];
+            clearSocketAdmin(socket);
             try {
                 if (mongoose.connection.readyState === 1) {
                     await User.updateOne({ username: userInfo.username }, { $set: { status: 'offline', lastSeen: new Date() } });

@@ -12,9 +12,11 @@ interface UsersListProps {
   users: ChatUser[];
   currentUser: string;
   onSettingsClick?: () => void;
+  isAdmin?: boolean;
+  onKickUser?: (username: string) => void;
 }
 
-export const UsersList = ({ users, currentUser, onSettingsClick }: UsersListProps) => {
+export const UsersList = ({ users, currentUser, onSettingsClick, isAdmin, onKickUser }: UsersListProps) => {
   return (
     <div className="bg-card border-r border-border h-full w-64 flex flex-col">
       <div className="p-4 border-b border-border">
@@ -32,6 +34,8 @@ export const UsersList = ({ users, currentUser, onSettingsClick }: UsersListProp
               user={user}
               isCurrentUser={user.username === currentUser}
               onSettingsClick={user.username === currentUser ? onSettingsClick : undefined}
+              isAdmin={isAdmin}
+              onKickUser={onKickUser}
             />
           ))}
         </div>
