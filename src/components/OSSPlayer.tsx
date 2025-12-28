@@ -98,7 +98,10 @@ export default function OSSPlayer() {
   const [countdown, setCountdown] = useState<string>("");
   const [currentStation, setCurrentStation] = useState<"main" | "live">("main");
   const [status, setStatus] = useState<string>("");
-  const liveSuppressUntilRef = useRef<number>(0); // ms timestamp when we can try live again
+  const liveSuppressUntilRef = useRef<number>(0);
+  const isTransitioningRef = useRef<boolean>(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null); // ms timestamp when we can try live again
 
   // Fetch metadata
   useEffect(() => {
@@ -171,40 +174,86 @@ export default function OSSPlayer() {
   // Switch audio src when station changes and auto-resume if playing
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio) return;
+    if (!audio || isTransitioningRef.current) return;
+    
+    isTransitioningRef.current = true;
     const wasPlaying = !audio.paused;
     const newSrc = STREAMS[currentStation];
-    try {
-      // Update source and reload
-      audio.src = newSrc;
-      audio.load();
-      if (wasPlaying) {
-        audio.play().catch(() => {
-          setStatus("Autoplay blocked; press play to resume.");
-        });
+    
+    console.log(`[OSSPlayer] Switching to ${currentStation} stream:`, newSrc);
+    
+    // Pause and cleanup current stream
+    audio.pause();
+    
+    // Disconnect audio context source if it exists
+    if (sourceNodeRef.current) {
+      try {
+        sourceNodeRef.current.disconnect();
+        sourceNodeRef.current = null;
+      } catch (e) {
+        console.warn('[OSSPlayer] Error disconnecting source node:', e);
       }
-    } catch (e) {
-      // Ignore assignment errors
     }
+    
+    // Small delay to ensure cleanup completes
+    setTimeout(() => {
+      try {
+        audio.src = newSrc;
+        audio.load();
+        
+        if (wasPlaying) {
+          audio.play()
+            .then(() => {
+              console.log(`[OSSPlayer] Successfully playing ${currentStation} stream`);
+              setStatus("");
+            })
+            .catch((err) => {
+              console.error(`[OSSPlayer] Playback error for ${currentStation}:`, err);
+              setStatus(`Unable to play ${currentStation} stream. Click play to retry.`);
+            });
+        }
+      } catch (e) {
+        console.error(`[OSSPlayer] Error switching to ${currentStation}:`, e);
+        setStatus(`Error loading ${currentStation} stream.`);
+      } finally {
+        isTransitioningRef.current = false;
+      }
+    }, 100);
   }, [currentStation]);
 
   // Fallback: if live stream errors, switch to main and suppress re-try briefly
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    const onError = () => {
-      if (currentStation === "live") {
-        setStatus("Live stream unavailable, falling back to main (will retry shortly).");
-        // Suppress live for 2 minutes
+    
+    const onError = (e: Event) => {
+      console.error(`[OSSPlayer] Stream error for ${currentStation}:`, e);
+      
+      // Only fallback if we're on live and not already transitioning
+      if (currentStation === "live" && !isTransitioningRef.current) {
+        console.log('[OSSPlayer] Live stream failed, falling back to main');
+        setStatus("Live stream unavailable, switching to main station.");
         liveSuppressUntilRef.current = Date.now() + 2 * 60 * 1000;
         setCurrentStation("main");
+      } else if (currentStation === "main") {
+        // Main stream error - just show error, don't switch
+        console.error('[OSSPlayer] Main stream error');
+        setStatus("Stream connection issue. Please try refreshing.");
       }
     };
+    
+    const onStalled = () => {
+      console.warn(`[OSSPlayer] Stream stalled for ${currentStation}`);
+      // Only show status, don't auto-switch on stall
+      setStatus("Stream buffering...");
+    };
+    
     audio.addEventListener('error', onError);
-    audio.addEventListener('stalled', onError);
+    audio.addEventListener('stalled', onStalled);
+    
     return () => {
       audio.removeEventListener('error', onError);
-      audio.removeEventListener('stalled', onError);
+      audio.removeEventListener('stalled', onStalled);
     };
   }, [currentStation]);
 
@@ -213,9 +262,8 @@ export default function OSSPlayer() {
     const audio = audioRef.current;
     const canvas = canvasRef.current;
     if (!audio || !canvas) return;
-    let ctx: AudioContext | null = null;
+    
     let analyser: AnalyserNode | null = null;
-    let source: MediaElementAudioSourceNode | null = null;
     let animationId: number;
 
     function draw() {
@@ -241,45 +289,83 @@ export default function OSSPlayer() {
     }
 
     function setupAudio() {
-      ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      source = ctx.createMediaElementSource(audio);
+      // Create audio context if it doesn't exist
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      
+      const ctx = audioContextRef.current;
+      
+      // Create new source node if needed
+      if (!sourceNodeRef.current) {
+        try {
+          sourceNodeRef.current = ctx.createMediaElementSource(audio);
+        } catch (e) {
+          // Source already exists, this is fine
+          console.log('[OSSPlayer] Audio source already created');
+        }
+      }
+      
+      // Always create fresh analyser for new stream
       analyser = ctx.createAnalyser();
       analyser.fftSize = 2048;
       analyser.smoothingTimeConstant = 0.85;
-      source.connect(analyser);
-      analyser.connect(ctx.destination);
+      
+      if (sourceNodeRef.current) {
+        sourceNodeRef.current.connect(analyser);
+        analyser.connect(ctx.destination);
+      }
+      
       draw();
     }
 
-    audio.addEventListener("play", () => {
-      if (!ctx) setupAudio();
-      if (ctx && ctx.state === "suspended") ctx.resume();
-    });
-    audio.addEventListener("pause", () => {
-      if (ctx && ctx.state === "running") ctx.suspend();
-    });
+    const handlePlay = () => {
+      if (!audioContextRef.current) setupAudio();
+      if (audioContextRef.current && audioContextRef.current.state === "suspended") {
+        audioContextRef.current.resume();
+      }
+    };
+    
+    const handlePause = () => {
+      if (audioContextRef.current && audioContextRef.current.state === "running") {
+        audioContextRef.current.suspend();
+      }
+    };
+
+    audio.addEventListener("play", handlePlay);
+    audio.addEventListener("pause", handlePause);
 
     // Setup on mount if already playing
     if (!audio.paused) setupAudio();
 
     return () => {
-      if (ctx) ctx.close();
       if (animationId) cancelAnimationFrame(animationId);
+      audio.removeEventListener("play", handlePlay);
+      audio.removeEventListener("pause", handlePause);
     };
-  }, []);
+  }, [currentStation]);
 
   // Initialize volume and handle changes
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
     
-    // Set initial volume immediately
-    audio.volume = volume;
+    // Only update if different to avoid loops
+    if (Math.abs(audio.volume - volume) > 0.001) {
+      audio.volume = volume;
+    }
+  }, [volume]);
+  
+  // Separate effect for listening to external volume changes
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
     
-    // Handle volume changes from other sources (e.g., system volume)
     const handleVolumeChange = () => {
-      if (audio.volume !== volume) {
-        setVolume(audio.volume);
+      const newVolume = audio.volume;
+      // Only update state if significantly different
+      if (Math.abs(newVolume - volume) > 0.001) {
+        setVolume(newVolume);
       }
     };
     
@@ -288,7 +374,7 @@ export default function OSSPlayer() {
     return () => {
       audio.removeEventListener('volumechange', handleVolumeChange);
     };
-  }, [volume]);
+  }, []);
 
   // Play/pause handler
   const togglePlay = () => {
