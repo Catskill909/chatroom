@@ -14,6 +14,7 @@ import { UsersList } from './UsersList';
 import { UsernameModal } from './UsernameModal';
 import { UserSettingsModal } from './UserSettingsModal';
 import { AdminLoginModal } from './AdminLoginModal';
+import { AdminPanel } from './AdminPanel';
 import type { ChatInputMessage } from './ChatInput';
 import { Shield } from 'lucide-react';
 
@@ -62,6 +63,7 @@ export const Chatroom = () => {
 
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAdminModal, setShowAdminModal] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [adminSubmitting, setAdminSubmitting] = useState(false);
   const [adminError, setAdminError] = useState<string | undefined>();
 
@@ -397,7 +399,7 @@ export const Chatroom = () => {
         if (!isAdmin) {
           setShowAdminModal(true);
         } else {
-          handleAdminLogout();
+          setShowAdminPanel(true);
         }
       }
     };
@@ -715,15 +717,15 @@ export const Chatroom = () => {
             <div className="relative">
               <button
                 type="button"
-                aria-label={isAdmin ? 'Admin logout (Ctrl+Shift+A)' : 'Admin login (Ctrl+Shift+A)'}
+                aria-label={isAdmin ? 'Open Admin Panel' : 'Admin login (Ctrl+Shift+A)'}
                 onClick={() => {
                   if (isAdmin) {
-                    handleAdminLogout();
+                    setShowAdminPanel(true);
                   } else {
                     setShowAdminModal(true);
                   }
                 }}
-                className={`absolute right-2 top-2 h-8 w-8 flex items-center justify-center rounded-md transition-all duration-300 ${isAdmin ? 'opacity-100 bg-yellow-500/20 hover:bg-yellow-500/30' : 'opacity-0 hover:opacity-100 focus:opacity-100 hover:bg-accent/40'}`}
+                className={`absolute right-2 top-2 h-8 w-8 flex items-center justify-center rounded-md transition-all duration-300 ${isAdmin ? 'opacity-100 bg-yellow-500/20 hover:bg-yellow-500/30' : 'opacity-40 hover:opacity-100 focus:opacity-100 hover:bg-accent/40'}`}
               >
                 <Shield className={`h-4 w-4 transition-all ${isAdmin ? 'text-yellow-500 animate-pulse' : 'text-muted-foreground'}`} />
               </button>
@@ -793,6 +795,19 @@ export const Chatroom = () => {
         onSubmit={handleAdminLogin}
         isSubmitting={adminSubmitting}
         error={adminError}
+      />
+
+      <AdminPanel
+        isOpen={showAdminPanel}
+        onClose={() => setShowAdminPanel(false)}
+        users={users}
+        messages={messages}
+        onKickUser={handleAdminKickUser}
+        onDeleteMessage={handleAdminDeleteMessage}
+        onLogout={() => {
+          handleAdminLogout();
+          setShowAdminPanel(false);
+        }}
       />
     </div>
   );
