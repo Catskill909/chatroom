@@ -280,15 +280,15 @@ export const Chatroom = () => {
     socketInstance.on('history', handleHistory);
     socketInstance.on('join_error', handleJoinError);
 
-      const handleAdminLoginResult = (payload: any) => {
+    const handleAdminLoginResult = (payload: any) => {
       const ok = Boolean(payload?.success);
       setAdminSubmitting(false);
       if (ok) {
         setIsAdmin(true);
         setShowAdminModal(false);
         setAdminError(undefined);
-        toast({ 
-          title: '🛡️ Admin Mode Enabled', 
+        toast({
+          title: '🛡️ Admin Mode Enabled',
           description: 'You now have access to moderation controls.',
           duration: 3000
         });
@@ -297,9 +297,9 @@ export const Chatroom = () => {
         localStorage.removeItem('adminRemembered');
         const errorMsg = payload?.error || 'Invalid admin password. Please try again.';
         setAdminError(errorMsg);
-        toast({ 
-          title: 'Authentication Failed', 
-          description: errorMsg, 
+        toast({
+          title: 'Authentication Failed',
+          description: errorMsg,
           variant: 'destructive',
           duration: 4000
         });
@@ -310,8 +310,8 @@ export const Chatroom = () => {
       setIsAdmin(false);
       setAdminError(undefined);
       localStorage.removeItem('adminRemembered');
-      toast({ 
-        title: 'Admin Mode Disabled', 
+      toast({
+        title: 'Admin Mode Disabled',
         description: 'You have logged out of admin mode.',
         duration: 2000
       });
@@ -330,8 +330,8 @@ export const Chatroom = () => {
       if (!id) return;
       setMessages((prev) => prev.filter((m) => m.id !== id));
       if (isAdmin) {
-        toast({ 
-          title: '✓ Message Deleted', 
+        toast({
+          title: '✓ Message Deleted',
           description: 'The message has been removed.',
           duration: 2000
         });
@@ -395,7 +395,7 @@ export const Chatroom = () => {
     }
     setAdminSubmitting(true);
     setAdminError(undefined);
-    
+
     // Store password if Remember Me is checked (base64 encoded for basic obfuscation)
     if (rememberMe) {
       try {
@@ -407,14 +407,14 @@ export const Chatroom = () => {
     } else {
       localStorage.removeItem('adminRemembered');
     }
-    
+
     socket.emit('admin:login', { password });
   }, [socket, toast]);
 
   // Auto-login if credentials are saved
   useEffect(() => {
     if (!socket?.connected || isAdmin) return;
-    
+
     try {
       const saved = localStorage.getItem('adminRemembered');
       if (saved) {
@@ -811,13 +811,14 @@ export const Chatroom = () => {
 
       {/* Mobile Drawer */}
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <SheetContent side="left" className="w-80 p-0">
+        <SheetContent side="left" className="w-80 p-0" hideCloseButton>
           <UsersList
             users={users}
             currentUser={currentUser}
             onSettingsClick={() => setShowSettingsModal(true)}
             isAdmin={isAdmin}
             onKickUser={handleAdminKickUser}
+            onClose={() => setDrawerOpen(false)}
           />
         </SheetContent>
       </Sheet>

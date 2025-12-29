@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import '@fortawesome/fontawesome-free/css/all.min.css';
+import { Volume2, VolumeX } from "lucide-react";
 
 // Utility to detect Safari (not Chrome or Android)
 function isSafari() {
@@ -33,7 +34,7 @@ function nowInTZ(): Date {
 }
 
 function hmToMinutes(hm: string): number {
-  const [h, m] = hm.split(":" ).map(n => parseInt(n, 10));
+  const [h, m] = hm.split(":").map(n => parseInt(n, 10));
   return h * 60 + m;
 }
 
@@ -175,16 +176,16 @@ export default function OSSPlayer() {
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || isTransitioningRef.current) return;
-    
+
     isTransitioningRef.current = true;
     const wasPlaying = !audio.paused;
     const newSrc = STREAMS[currentStation];
-    
+
     console.log(`[OSSPlayer] Switching to ${currentStation} stream:`, newSrc);
-    
+
     // Pause and cleanup current stream
     audio.pause();
-    
+
     // Disconnect audio context source if it exists
     if (sourceNodeRef.current) {
       try {
@@ -194,13 +195,13 @@ export default function OSSPlayer() {
         console.warn('[OSSPlayer] Error disconnecting source node:', e);
       }
     }
-    
+
     // Small delay to ensure cleanup completes
     setTimeout(() => {
       try {
         audio.src = newSrc;
         audio.load();
-        
+
         if (wasPlaying) {
           audio.play()
             .then(() => {
@@ -225,10 +226,10 @@ export default function OSSPlayer() {
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    
+
     const onError = (e: Event) => {
       console.error(`[OSSPlayer] Stream error for ${currentStation}:`, e);
-      
+
       // Only fallback if we're on live and not already transitioning
       if (currentStation === "live" && !isTransitioningRef.current) {
         console.log('[OSSPlayer] Live stream failed, falling back to main');
@@ -241,16 +242,16 @@ export default function OSSPlayer() {
         setStatus("Stream connection issue. Please try refreshing.");
       }
     };
-    
+
     const onStalled = () => {
       console.warn(`[OSSPlayer] Stream stalled for ${currentStation}`);
       // Only show status, don't auto-switch on stall
       setStatus("Stream buffering...");
     };
-    
+
     audio.addEventListener('error', onError);
     audio.addEventListener('stalled', onStalled);
-    
+
     return () => {
       audio.removeEventListener('error', onError);
       audio.removeEventListener('stalled', onStalled);
@@ -262,7 +263,7 @@ export default function OSSPlayer() {
     const audio = audioRef.current;
     const canvas = canvasRef.current;
     if (!audio || !canvas) return;
-    
+
     let analyser: AnalyserNode | null = null;
     let animationId: number;
 
@@ -293,9 +294,9 @@ export default function OSSPlayer() {
       if (!audioContextRef.current) {
         audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
       }
-      
+
       const ctx = audioContextRef.current;
-      
+
       // Create new source node if needed
       if (!sourceNodeRef.current) {
         try {
@@ -305,17 +306,17 @@ export default function OSSPlayer() {
           console.log('[OSSPlayer] Audio source already created');
         }
       }
-      
+
       // Always create fresh analyser for new stream
       analyser = ctx.createAnalyser();
       analyser.fftSize = 2048;
       analyser.smoothingTimeConstant = 0.85;
-      
+
       if (sourceNodeRef.current) {
         sourceNodeRef.current.connect(analyser);
         analyser.connect(ctx.destination);
       }
-      
+
       draw();
     }
 
@@ -325,7 +326,7 @@ export default function OSSPlayer() {
         audioContextRef.current.resume();
       }
     };
-    
+
     const handlePause = () => {
       if (audioContextRef.current && audioContextRef.current.state === "running") {
         audioContextRef.current.suspend();
@@ -349,18 +350,18 @@ export default function OSSPlayer() {
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    
+
     // Only update if different to avoid loops
     if (Math.abs(audio.volume - volume) > 0.001) {
       audio.volume = volume;
     }
   }, [volume]);
-  
+
   // Separate effect for listening to external volume changes
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    
+
     const handleVolumeChange = () => {
       const newVolume = audio.volume;
       // Only update state if significantly different
@@ -368,9 +369,9 @@ export default function OSSPlayer() {
         setVolume(newVolume);
       }
     };
-    
+
     audio.addEventListener('volumechange', handleVolumeChange);
-    
+
     return () => {
       audio.removeEventListener('volumechange', handleVolumeChange);
     };
@@ -474,89 +475,41 @@ export default function OSSPlayer() {
         onVolumeChange={e => setVolume((e.target as HTMLAudioElement).volume)}
       />
 
-      <div style={{ marginTop: 12, display: "flex", alignItems: "center" }}>
-        <span style={{ fontSize: 13, marginRight: 12, minWidth: 50 }}>Volume</span>
-        <div style={{ flex: 1, position: 'relative' }}>
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.01}
-            value={volume}
-            onChange={e => setVolume(Number(e.target.value))}
-            style={{
-              width: '100%',
-              WebkitAppearance: 'none',
-              height: 4,
-              background: '#444',
-              borderRadius: 2,
-              outline: 'none',
-              position: 'relative',
-              zIndex: 1,
-              margin: 0,
-              padding: 0,
-            } as React.CSSProperties}
-          />
-          <div style={{
-            position: 'absolute',
-            top: '50%',
-            left: 0,
-            height: 4,
-            width: `${volume * 100}%`,
-            backgroundColor: '#fff',
-            borderRadius: 2,
-            pointerEvents: 'none',
-            zIndex: 2,
-          }} />
-        </div>
-        <span style={{ 
-          fontSize: 13, 
-          marginLeft: 12, 
-          minWidth: 32, 
-          textAlign: 'right',
-          fontVariantNumeric: 'tabular-nums'
-        }}>
-          {Math.round(volume * 100)}%
-        </span>
+      <div style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
+        <button
+          onClick={() => {
+            const audio = audioRef.current;
+            if (!audio) return;
+            if (audio.volume > 0) {
+              audio.volume = 0;
+              setVolume(0);
+            } else {
+              audio.volume = 0.8;
+              setVolume(0.8);
+            }
+          }}
+          style={{
+            background: "rgba(255,255,255,0.1)",
+            border: "none",
+            borderRadius: 8,
+            padding: 8,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "background 0.2s ease"
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.2)"}
+          onMouseLeave={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.1)"}
+          aria-label={volume > 0 ? "Mute" : "Unmute"}
+        >
+          {volume > 0 ? (
+            <Volume2 className="w-5 h-5 text-white" />
+          ) : (
+            <VolumeX className="w-5 h-5 text-white" />
+          )}
+        </button>
       </div>
-      <style>{`
-        /* Webkit (Chrome, Safari) */
-        input[type="range"]::-webkit-slider-thumb {
-          -webkit-appearance: none;
-          width: 12px;
-          height: 12px;
-          border-radius: 50%;
-          background: #fff;
-          cursor: pointer;
-          margin-top: -4px;
-          position: relative;
-          z-index: 3;
-        }
-        
-        /* Firefox */
-        input[type="range"]::-moz-range-thumb {
-          width: 12px;
-          height: 12px;
-          border-radius: 50%;
-          background: #fff;
-          cursor: pointer;
-          border: none;
-          position: relative;
-          z-index: 3;
-        }
-        
-        /* IE/Edge */
-        input[type="range"]::-ms-thumb {
-          width: 12px;
-          height: 12px;
-          border-radius: 50%;
-          background: #fff;
-          cursor: pointer;
-          border: none;
-          position: relative;
-          z-index: 3;
-        }
-      `}</style>
       {status && <p style={{ color: "#ff0000", fontSize: 12, margin: 0, marginTop: 6 }}>{status}</p>}
     </div>
   );
