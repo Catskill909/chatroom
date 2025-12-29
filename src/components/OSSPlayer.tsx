@@ -91,6 +91,7 @@ export default function OSSPlayer() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [volume, setVolume] = useState(0.8);
+  const [isMuted, setIsMuted] = useState(false);
   const [metadata, setMetadata] = useState<any>(null);
   const [art, setArt] = useState<string>(defaultArt);
   const [title, setTitle] = useState<string>("Loading...");
@@ -480,13 +481,9 @@ export default function OSSPlayer() {
           onClick={() => {
             const audio = audioRef.current;
             if (!audio) return;
-            if (audio.volume > 0) {
-              audio.volume = 0;
-              setVolume(0);
-            } else {
-              audio.volume = 0.8;
-              setVolume(0.8);
-            }
+            const newMutedState = !isMuted;
+            audio.muted = newMutedState;
+            setIsMuted(newMutedState);
           }}
           style={{
             background: "rgba(255,255,255,0.1)",
@@ -501,12 +498,12 @@ export default function OSSPlayer() {
           }}
           onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.2)"}
           onMouseLeave={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.1)"}
-          aria-label={volume > 0 ? "Mute" : "Unmute"}
+          aria-label={isMuted ? "Unmute" : "Mute"}
         >
-          {volume > 0 ? (
-            <Volume2 className="w-5 h-5 text-white" />
-          ) : (
+          {isMuted ? (
             <VolumeX className="w-5 h-5 text-white" />
+          ) : (
+            <Volume2 className="w-5 h-5 text-white" />
           )}
         </button>
       </div>
