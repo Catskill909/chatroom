@@ -86,7 +86,17 @@ function msUntilNextBoundary(): { ms: number; type: "start" | "end" } {
 
 const defaultArt = "https://via.placeholder.com/300x300?text=Album+Art";
 
-export default function OSSPlayer() {
+interface OSSPlayerProps {
+  onStateChange?: (state: {
+    isPlaying: boolean;
+    isMuted: boolean;
+    title: string;
+    artist: string;
+    art: string;
+  }) => void;
+}
+
+export default function OSSPlayer({ onStateChange }: OSSPlayerProps = {}) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -104,6 +114,13 @@ export default function OSSPlayer() {
   const isTransitioningRef = useRef<boolean>(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null); // ms timestamp when we can try live again
+
+  // Notify parent of state changes
+  useEffect(() => {
+    if (onStateChange) {
+      onStateChange({ isPlaying, isMuted, title, artist, art });
+    }
+  }, [isPlaying, isMuted, title, artist, art, onStateChange]);
 
   // Fetch metadata
   useEffect(() => {

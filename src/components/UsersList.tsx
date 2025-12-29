@@ -1,7 +1,9 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import OSSPlayer from "./OSSPlayer";
 import { UserCard } from './UserCard';
 import { X } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export interface ChatUser {
   username: string;
@@ -19,6 +21,34 @@ interface UsersListProps {
 }
 
 export const UsersList = ({ users, currentUser, onSettingsClick, isAdmin, onKickUser, onClose }: UsersListProps) => {
+  const isMobile = useIsMobile();
+  const [playerState, setPlayerState] = React.useState({
+    isPlaying: false,
+    isMuted: false,
+    title: 'Loading...',
+    artist: 'Please wait',
+    art: 'https://via.placeholder.com/300x300?text=Album+Art'
+  });
+
+  // On mobile, render player via Portal so it persists outside the drawer
+  const playerElement = isMobile ? (
+    // Mobile: positioned absolutely when portaled
+    <div
+      className="fixed bottom-0 left-0 right-0 z-40 pointer-events-auto"
+      style={{
+        transform: onClose ? 'translateX(0)' : 'translateX(0)',
+        transition: 'transform 0.3s ease-in-out'
+      }}
+    >
+      <OSSPlayer onStateChange={setPlayerState} />
+    </div>
+  ) : (
+    // Desktop: normal rendering in sidebar
+    <div className="mt-2">
+      <OSSPlayer onStateChange={setPlayerState} />
+    </div>
+  );
+
   return (
     <div className="bg-card border-r border-border h-full w-full sm:w-64 flex flex-col">
       <div className="p-4 border-b border-border relative">
@@ -52,11 +82,12 @@ export const UsersList = ({ users, currentUser, onSettingsClick, isAdmin, onKick
         </div>
       </div>
 
-
-      {/* Old Skool Sessions Player (React version) */}
-      <div className="mt-2">
-        <OSSPlayer />
-      </div>
+      {/* Old Skool Sessions Player */}
+      {/* On mobile: render via Portal (outside drawer), On desktop: render normally (inside sidebar) */}
+      {isMobile && typeof document !== 'undefined'
+        ? createPortal(playerElement, document.body)
+        : playerElement
+      }
     </div>
   );
 };
