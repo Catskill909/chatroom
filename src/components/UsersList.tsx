@@ -20,7 +20,7 @@ interface UsersListProps {
 
 export const UsersList = ({ users, currentUser, onSettingsClick, isAdmin, onKickUser, onClose }: UsersListProps) => {
   return (
-    <div className="bg-card border-r border-border h-full w-64 flex flex-col">
+    <div className="bg-card border-r border-border h-full w-full sm:w-64 flex flex-col">
       <div className="p-4 border-b border-border relative">
         <h2 className="font-semibold text-foreground">Online Users</h2>
         <p className="text-sm text-muted-foreground">
