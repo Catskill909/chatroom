@@ -93,7 +93,8 @@ const messageSchema = new mongoose.Schema({
         artist: { type: String },
         album: { type: String },
         coverUrl: { type: String }
-    }
+    },
+    reactions: { type: Map, of: [String], default: {} }
 }, { versionKey: false, minimize: false });
 
 // Purge messages automatically after 90 days (does not affect uploaded files)
@@ -627,6 +628,82 @@ io.on('connection', (socket) => {
         const uniqueUsers = Object.values(users).filter((u, i, arr) => arr.findIndex(other => other.username === u.username) === i);
         console.log(`[update_avatar] Broadcasting updated users list (memory):`, uniqueUsers.map(u => ({ username: u.username, avatar: u.avatar ? 'has-avatar' : 'no-avatar' })));
         io.emit('users', uniqueUsers);
+    });
+
+    socket.on('add_reaction', async ({ messageId, emoji, username }) => {
+        console.log(`[add_reaction] ${username} adding ${emoji} to message ${messageId}`);
+        
+        try {
+            // Update in database if available
+            if (mongoose.connection.readyState === 1) {
+                const msg = await Message.findOne({ id: messageId });
+                if (msg) {
+                    if (!msg.reactions) {
+                        msg.reactions = new Map();
+                    }
+                    const users = msg.reactions.get(emoji) || [];
+                    if (!users.includes(username)) {
+                        users.push(username);
+                        msg.reactions.set(emoji, users);
+                        await msg.save();
+                    }
+                }
+            }
+            
+            // Update in memory
+            const msg = messages.find(m => m.id === messageId);
+            if (msg) {
+                if (!msg.reactions) {
+                    msg.reactions = {};
+                }
+                if (!msg.reactions[emoji]) {
+                    msg.reactions[emoji] = [];
+                }
+                if (!msg.reactions[emoji].includes(username)) {
+                    msg.reactions[emoji].push(username);
+                }
+            }
+            
+            // Broadcast reaction update
+            io.emit('reaction_updated', { messageId, emoji, username, action: 'add' });
+        } catch (err) {
+            console.error('[add_reaction] error:', err);
+        }
+    });
+
+    socket.on('remove_reaction', async ({ messageId, emoji, username }) => {
+        console.log(`[remove_reaction] ${username} removing ${emoji} from message ${messageId}`);
+        
+        try {
+            // Update in database if available
+            if (mongoose.connection.readyState === 1) {
+                const msg = await Message.findOne({ id: messageId });
+                if (msg && msg.reactions) {
+                    const users = msg.reactions.get(emoji) || [];
+                    const filtered = users.filter(u => u !== username);
+                    if (filtered.length === 0) {
+                        msg.reactions.delete(emoji);
+                    } else {
+                        msg.reactions.set(emoji, filtered);
+                    }
+                    await msg.save();
+                }
+            }
+            
+            // Update in memory
+            const msg = messages.find(m => m.id === messageId);
+            if (msg && msg.reactions && msg.reactions[emoji]) {
+                msg.reactions[emoji] = msg.reactions[emoji].filter(u => u !== username);
+                if (msg.reactions[emoji].length === 0) {
+                    delete msg.reactions[emoji];
+                }
+            }
+            
+            // Broadcast reaction update
+            io.emit('reaction_updated', { messageId, emoji, username, action: 'remove' });
+        } catch (err) {
+            console.error('[remove_reaction] error:', err);
+        }
     });
 
     socket.on('error', (err) => {

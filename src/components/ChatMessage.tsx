@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { User, ExternalLink, Trash2 } from "lucide-react";
+import { User, ExternalLink, Trash2, Smile, Plus } from "lucide-react";
+import Picker from "@emoji-mart/react";
+import data from "@emoji-mart/data";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import AudioPlayer, { RHAP_UI } from "react-h5-audio-player";
 import "react-h5-audio-player/lib/styles.css";
 import "@/components/audio-player-dark.css";
@@ -33,6 +36,7 @@ export interface Message {
     album?: string;
     coverUrl?: string;
   };
+  reactions?: Record<string, string[]>;
 }
 
 interface ChatMessageProps {
@@ -40,9 +44,11 @@ interface ChatMessageProps {
   currentUser: string;
   isAdmin?: boolean;
   onDeleteMessage?: (messageId: string) => void;
+  onAddReaction?: (messageId: string, emoji: string) => void;
+  onRemoveReaction?: (messageId: string, emoji: string) => void;
 }
 
-export const ChatMessage = ({ message, currentUser, isAdmin, onDeleteMessage }: ChatMessageProps) => {
+export const ChatMessage = ({ message, currentUser, isAdmin, onDeleteMessage, onAddReaction, onRemoveReaction }: ChatMessageProps) => {
   const isOwn = message.username === currentUser;
 
   // Modal state for image preview
@@ -52,6 +58,12 @@ export const ChatMessage = ({ message, currentUser, isAdmin, onDeleteMessage }: 
   const [, setNow] = useState(Date.now());
 
   const [deleteOpen, setDeleteOpen] = useState(false);
+  
+  // Reaction picker state
+  const [showReactionPicker, setShowReactionPicker] = useState(false);
+  
+  // Quick reaction emojis for fast access
+  const QUICK_REACTIONS = ['👍', '❤️', '😂', '🎉', '🔥', '👏'];
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -81,6 +93,19 @@ export const ChatMessage = ({ message, currentUser, isAdmin, onDeleteMessage }: 
       .replace(/\byears\b/g, "yr")
       .replace(/\byear\b/g, "yr");
   }
+
+  const handleReactionClick = (emoji: string) => {
+    if (!onAddReaction || !onRemoveReaction) return;
+    
+    const hasReacted = message.reactions?.[emoji]?.includes(currentUser);
+    
+    if (hasReacted) {
+      onRemoveReaction(message.id, emoji);
+    } else {
+      onAddReaction(message.id, emoji);
+    }
+    setShowReactionPicker(false);
+  };
 
   return (
     <div className={`w-full max-w-2xl ${isOwn ? 'ml-auto' : ''}`} style={{minWidth: 0}}>
@@ -258,6 +283,102 @@ export const ChatMessage = ({ message, currentUser, isAdmin, onDeleteMessage }: 
               })()}
             </div>
           )}
+
+          {/* Reactions Display and Picker - Modern Material Design */}
+          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            {/* Display existing reactions as pills */}
+            {message.reactions && Object.entries(message.reactions).map(([emoji, users]) => {
+              if (!users || users.length === 0) return null;
+              const hasReacted = users.includes(currentUser);
+              return (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => handleReactionClick(emoji)}
+                  className={`
+                    group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm
+                    transition-all duration-200 ease-out
+                    hover:scale-105 active:scale-95
+                    ${hasReacted 
+                      ? 'bg-gradient-to-r from-blue-500/25 to-purple-500/20 border border-blue-400/40 shadow-sm shadow-blue-500/10' 
+                      : 'bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20'
+                    }
+                  `}
+                  title={`${users.join(', ')}\nClick to ${hasReacted ? 'remove' : 'add'} reaction`}
+                >
+                  <span className="text-base leading-none">{emoji}</span>
+                  <span className={`text-xs font-medium tabular-nums ${hasReacted ? 'text-blue-300' : 'text-white/60'}`}>
+                    {users.length}
+                  </span>
+                </button>
+              );
+            })}
+            
+            {/* Add Reaction Button with Popover */}
+            <Popover open={showReactionPicker} onOpenChange={setShowReactionPicker}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className={`
+                    inline-flex items-center justify-center w-8 h-8 rounded-full
+                    transition-all duration-200 ease-out
+                    hover:scale-110 active:scale-95
+                    ${showReactionPicker 
+                      ? 'bg-white/15 text-white border border-white/20' 
+                      : 'bg-white/5 text-white/40 border border-transparent hover:bg-white/10 hover:text-white/70'
+                    }
+                  `}
+                  title="Add reaction"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent 
+                align="start" 
+                side="top"
+                sideOffset={8}
+                className="p-0 w-auto bg-transparent border-none shadow-2xl rounded-2xl overflow-hidden"
+              >
+                <div className="bg-background/95 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden">
+                  {/* Quick Reactions Bar */}
+                  <div className="flex items-center gap-1 p-2 border-b border-white/10 bg-white/5">
+                    {QUICK_REACTIONS.map(emoji => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => {
+                          handleReactionClick(emoji);
+                        }}
+                        className="w-9 h-9 flex items-center justify-center text-xl rounded-lg hover:bg-white/10 transition-all duration-150 hover:scale-125 active:scale-100"
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                  
+                  {/* Full Emoji Picker */}
+                  <Picker
+                    data={data}
+                    theme="dark"
+                    onEmojiSelect={(emoji: any) => {
+                      const emojiChar = emoji.native || "";
+                      if (emojiChar) {
+                        handleReactionClick(emojiChar);
+                      }
+                    }}
+                    previewPosition="none"
+                    skinTonePosition="search"
+                    maxFrequentRows={2}
+                    perLine={8}
+                    emojiSize={24}
+                    emojiButtonSize={32}
+                    navPosition="bottom"
+                    searchPosition="sticky"
+                  />
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
       </div>
     </div>

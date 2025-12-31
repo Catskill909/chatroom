@@ -45,6 +45,7 @@ interface Message {
   image?: string;
   audio?: string;
   audioMeta?: { title?: string; artist?: string; album?: string; coverUrl?: string };
+  reactions?: Record<string, string[]>;
 }
 
 interface ChatUser {
@@ -345,11 +346,39 @@ export const Chatroom = () => {
       }
     };
 
+    const handleReactionUpdated = (payload: { messageId: string; emoji: string; username: string; action: 'add' | 'remove' }) => {
+      console.log('[socket] reaction_updated', payload);
+      setMessages(prev => prev.map(msg => {
+        if (msg.id !== payload.messageId) return msg;
+        
+        const reactions = { ...(msg.reactions || {}) };
+        
+        if (payload.action === 'add') {
+          if (!reactions[payload.emoji]) {
+            reactions[payload.emoji] = [];
+          }
+          if (!reactions[payload.emoji].includes(payload.username)) {
+            reactions[payload.emoji] = [...reactions[payload.emoji], payload.username];
+          }
+        } else {
+          if (reactions[payload.emoji]) {
+            reactions[payload.emoji] = reactions[payload.emoji].filter(u => u !== payload.username);
+            if (reactions[payload.emoji].length === 0) {
+              delete reactions[payload.emoji];
+            }
+          }
+        }
+        
+        return { ...msg, reactions };
+      }));
+    };
+
     socketInstance.on('admin:loginResult', handleAdminLoginResult);
     socketInstance.on('admin:logoutResult', handleAdminLogoutResult);
     socketInstance.on('admin:error', handleAdminError);
     socketInstance.on('admin:messageDeleted', handleAdminMessageDeleted);
     socketInstance.on('admin:userKicked', handleAdminUserKicked);
+    socketInstance.on('reaction_updated', handleReactionUpdated);
 
     setSocket(socketInstance);
 
@@ -379,6 +408,7 @@ export const Chatroom = () => {
       socketInstance.off('admin:error', handleAdminError);
       socketInstance.off('admin:messageDeleted', handleAdminMessageDeleted);
       socketInstance.off('admin:userKicked', handleAdminUserKicked);
+      socketInstance.off('reaction_updated', handleReactionUpdated);
       window.removeEventListener('beforeunload', beforeUnloadHandler);
 
       // Always disconnect on unmount to avoid lingering presence
@@ -633,6 +663,16 @@ export const Chatroom = () => {
     });
   };
 
+  const handleAddReaction = useCallback((messageId: string, emoji: string) => {
+    if (!socket || !currentUser) return;
+    socket.emit('add_reaction', { messageId, emoji, username: currentUser });
+  }, [socket, currentUser]);
+
+  const handleRemoveReaction = useCallback((messageId: string, emoji: string) => {
+    if (!socket || !currentUser) return;
+    socket.emit('remove_reaction', { messageId, emoji, username: currentUser });
+  }, [socket, currentUser]);
+
   const handleSendMessage = async (msg: ChatInputMessage) => {
     if (!currentUser || !socket) return;
 
@@ -786,6 +826,8 @@ export const Chatroom = () => {
                 currentUser={currentUser}
                 isAdmin={isAdmin}
                 onDeleteMessage={handleAdminDeleteMessage}
+                onAddReaction={handleAddReaction}
+                onRemoveReaction={handleRemoveReaction}
               />
             ))}
           </div>
