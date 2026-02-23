@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useTimeTick } from "./TimeTickContext";
 import { formatDistanceToNow } from "date-fns";
 import { User, ExternalLink, Trash2, Smile, Plus } from "lucide-react";
 import Picker from "@emoji-mart/react";
@@ -54,23 +55,16 @@ export const ChatMessage = ({ message, currentUser, isAdmin, onDeleteMessage, on
   // Modal state for image preview
   const [showImageModal, setShowImageModal] = useState(false);
 
-  // State to trigger re-render every minute
-  const [, setNow] = useState(Date.now());
+  // Subscribe to shared minute-tick timer (one timer for ALL messages, not one per message)
+  useTimeTick();
 
   const [deleteOpen, setDeleteOpen] = useState(false);
-  
+
   // Reaction picker state
   const [showReactionPicker, setShowReactionPicker] = useState(false);
-  
+
   // Quick reaction emojis for fast access
   const QUICK_REACTIONS = ['👍', '❤️', '😂', '🎉', '🔥', '👏'];
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setNow(Date.now());
-    }, 60 * 1000); // every minute
-    return () => clearInterval(interval);
-  }, []);
 
   // Ensure timestamp is a Date object
   const msgDate = message.timestamp instanceof Date
@@ -96,9 +90,9 @@ export const ChatMessage = ({ message, currentUser, isAdmin, onDeleteMessage, on
 
   const handleReactionClick = (emoji: string) => {
     if (!onAddReaction || !onRemoveReaction) return;
-    
+
     const hasReacted = message.reactions?.[emoji]?.includes(currentUser);
-    
+
     if (hasReacted) {
       onRemoveReaction(message.id, emoji);
     } else {
@@ -108,8 +102,8 @@ export const ChatMessage = ({ message, currentUser, isAdmin, onDeleteMessage, on
   };
 
   return (
-    <div className={`w-full max-w-2xl ${isOwn ? 'ml-auto' : ''}`} style={{minWidth: 0}}>
-      <div className={`flex space-x-3 p-3 rounded-lg transition-colors hover:bg-chat-hover ${isOwn ? 'bg-chat-bubble-own' : 'bg-chat-bubble-other'}`} style={{minWidth: 0, width: '100%'}}>
+    <div className={`w-full max-w-2xl ${isOwn ? 'ml-auto' : ''}`} style={{ minWidth: 0 }}>
+      <div className={`flex space-x-3 p-3 rounded-lg transition-colors hover:bg-chat-hover ${isOwn ? 'bg-chat-bubble-own' : 'bg-chat-bubble-other'}`} style={{ minWidth: 0, width: '100%' }}>
         {/* Avatar */}
         <div className="flex-shrink-0">
           <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center border border-border overflow-hidden">
@@ -172,8 +166,8 @@ export const ChatMessage = ({ message, currentUser, isAdmin, onDeleteMessage, on
 
           {/* Audio Message Rendering */}
           {message.audio && (
-            <div className="mb-2 flex flex-col bg-muted rounded-lg p-3 w-full min-w-0 overflow-visible audio-player-bubble" style={{minWidth: 0}}>
-              <div className="flex items-center mb-2" style={{minWidth: 0}}>
+            <div className="mb-2 flex flex-col bg-muted rounded-lg p-3 w-full min-w-0 overflow-visible audio-player-bubble" style={{ minWidth: 0 }}>
+              <div className="flex items-center mb-2" style={{ minWidth: 0 }}>
                 <img
                   src={message.audioMeta?.coverUrl || "/spalsh_image.png"}
                   alt="Audio cover"
@@ -186,7 +180,7 @@ export const ChatMessage = ({ message, currentUser, isAdmin, onDeleteMessage, on
                   <div className="text-xs text-muted-foreground">{message.audioMeta?.album || ""}</div>
                 </div>
               </div>
-              <div className="w-full min-w-0 audio-player-fullwidth" style={{width: '100%', minWidth: 0}}>
+              <div className="w-full min-w-0 audio-player-fullwidth" style={{ width: '100%', minWidth: 0 }}>
                 <AudioPlayer
                   src={message.audio}
                   showJumpControls={false}
@@ -212,28 +206,28 @@ export const ChatMessage = ({ message, currentUser, isAdmin, onDeleteMessage, on
 
           {/* Image Message Rendering */}
           {message.image && (
-  <div className="mb-2 relative group">
-    <img
-      src={message.image}
-      alt="Shared image"
-      className="w-full h-auto max-w-full max-h-64 sm:max-h-80 rounded-lg border border-border object-cover"
-      onLoad={() => console.log("[chat] Image loaded in message")}
-      onError={(e) => console.error("[chat] Image load error:", e)}
-      style={{ cursor: 'pointer' }}
-      onClick={() => setShowImageModal(true)}
-    />
-    <button
-      type="button"
-      aria-label="View full image"
-      className="absolute top-2 left-2 bg-black/70 rounded-full p-2 opacity-85 group-hover:opacity-100 hover:bg-white/10 hover:text-gray-200 transition-colors flex items-center justify-center shadow-lg focus-visible:ring-2 focus-visible:ring-white"
-      onClick={e => { e.stopPropagation(); setShowImageModal(true); }}
-      tabIndex={0}
-    >
-      <MagnifierIcon className="w-6 h-6 text-white group-hover:text-gray-200 transition-colors" />
-    </button>
-    <ImageModal open={showImageModal} imageUrl={message.image} onClose={() => setShowImageModal(false)} />
-  </div>
-)}
+            <div className="mb-2 relative group">
+              <img
+                src={message.image}
+                alt="Shared image"
+                className="w-full h-auto max-w-full max-h-64 sm:max-h-80 rounded-lg border border-border object-cover"
+                onLoad={() => console.log("[chat] Image loaded in message")}
+                onError={(e) => console.error("[chat] Image load error:", e)}
+                style={{ cursor: 'pointer' }}
+                onClick={() => setShowImageModal(true)}
+              />
+              <button
+                type="button"
+                aria-label="View full image"
+                className="absolute top-2 left-2 bg-black/70 rounded-full p-2 opacity-85 group-hover:opacity-100 hover:bg-white/10 hover:text-gray-200 transition-colors flex items-center justify-center shadow-lg focus-visible:ring-2 focus-visible:ring-white"
+                onClick={e => { e.stopPropagation(); setShowImageModal(true); }}
+                tabIndex={0}
+              >
+                <MagnifierIcon className="w-6 h-6 text-white group-hover:text-gray-200 transition-colors" />
+              </button>
+              <ImageModal open={showImageModal} imageUrl={message.image} onClose={() => setShowImageModal(false)} />
+            </div>
+          )}
 
           {/* Text Message Rendering with Link Detection */}
           {message.content && (
@@ -265,7 +259,7 @@ export const ChatMessage = ({ message, currentUser, isAdmin, onDeleteMessage, on
                   return part;
                 })}
               </p>
-              
+
               {/* Link Previews */}
               {(() => {
                 const urls = message.content.match(/https?:\/\/[^\s]+/g) || [];
@@ -278,7 +272,7 @@ export const ChatMessage = ({ message, currentUser, isAdmin, onDeleteMessage, on
                     return false;
                   }
                 });
-                
+
                 return firstValidUrl ? <LinkPreview url={firstValidUrl} /> : null;
               })()}
             </div>
@@ -299,8 +293,8 @@ export const ChatMessage = ({ message, currentUser, isAdmin, onDeleteMessage, on
                     group inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm
                     transition-all duration-200 ease-out
                     hover:scale-105 active:scale-95
-                    ${hasReacted 
-                      ? 'bg-gradient-to-r from-blue-500/25 to-purple-500/20 border border-blue-400/40 shadow-sm shadow-blue-500/10' 
+                    ${hasReacted
+                      ? 'bg-gradient-to-r from-blue-500/25 to-purple-500/20 border border-blue-400/40 shadow-sm shadow-blue-500/10'
                       : 'bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20'
                     }
                   `}
@@ -313,7 +307,7 @@ export const ChatMessage = ({ message, currentUser, isAdmin, onDeleteMessage, on
                 </button>
               );
             })}
-            
+
             {/* Add Reaction Button with Popover */}
             <Popover open={showReactionPicker} onOpenChange={setShowReactionPicker}>
               <PopoverTrigger asChild>
@@ -323,8 +317,8 @@ export const ChatMessage = ({ message, currentUser, isAdmin, onDeleteMessage, on
                     inline-flex items-center justify-center w-8 h-8 rounded-full
                     transition-all duration-200 ease-out
                     hover:scale-110 active:scale-95
-                    ${showReactionPicker 
-                      ? 'bg-white/15 text-white border border-white/20' 
+                    ${showReactionPicker
+                      ? 'bg-white/15 text-white border border-white/20'
                       : 'bg-white/5 text-white/40 border border-transparent hover:bg-white/10 hover:text-white/70'
                     }
                   `}
@@ -333,8 +327,8 @@ export const ChatMessage = ({ message, currentUser, isAdmin, onDeleteMessage, on
                   <Plus className="w-4 h-4" />
                 </button>
               </PopoverTrigger>
-              <PopoverContent 
-                align="start" 
+              <PopoverContent
+                align="start"
                 side="top"
                 sideOffset={8}
                 className="p-0 w-auto bg-transparent border-none shadow-2xl rounded-2xl overflow-hidden"
@@ -355,7 +349,7 @@ export const ChatMessage = ({ message, currentUser, isAdmin, onDeleteMessage, on
                       </button>
                     ))}
                   </div>
-                  
+
                   {/* Full Emoji Picker */}
                   <Picker
                     data={data}

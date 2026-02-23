@@ -283,10 +283,11 @@ export default function OSSPlayer({ onStateChange }: OSSPlayerProps = {}) {
     if (!audio || !canvas) return;
 
     let analyser: AnalyserNode | null = null;
-    let animationId: number;
+    let animationId: number = 0;
+    let isActive = true;
 
     function draw() {
-      if (!analyser || !canvas) return;
+      if (!isActive || !analyser || !canvas) return;
       const canvasCtx = canvas.getContext("2d");
       if (!canvasCtx) return;
       const bufferLength = analyser.frequencyBinCount;
@@ -325,7 +326,12 @@ export default function OSSPlayer({ onStateChange }: OSSPlayerProps = {}) {
         }
       }
 
-      // Always create fresh analyser for new stream
+      // Disconnect source from any old analyser before creating a new one
+      if (sourceNodeRef.current) {
+        try { sourceNodeRef.current.disconnect(); } catch { }
+      }
+
+      // Create fresh analyser for new stream
       analyser = ctx.createAnalyser();
       analyser.fftSize = 2048;
       analyser.smoothingTimeConstant = 0.85;
@@ -358,9 +364,14 @@ export default function OSSPlayer({ onStateChange }: OSSPlayerProps = {}) {
     if (!audio.paused) setupAudio();
 
     return () => {
+      isActive = false;
       if (animationId) cancelAnimationFrame(animationId);
       audio.removeEventListener("play", handlePlay);
       audio.removeEventListener("pause", handlePause);
+      // Disconnect analyser to prevent orphaned nodes
+      if (analyser) {
+        try { analyser.disconnect(); } catch { }
+      }
     };
   }, [currentStation]);
 

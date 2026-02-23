@@ -10,6 +10,7 @@ import { v4 as uuidv4 } from 'uuid';
 // UI Components
 import { ChatInput } from './ChatInput';
 import { ChatMessage } from './ChatMessage';
+import { TimeTickProvider } from './TimeTickContext';
 import { UsersList } from './UsersList';
 import { UsernameModal } from './UsernameModal';
 import { UserSettingsModal } from './UserSettingsModal';
@@ -94,13 +95,20 @@ export const Chatroom = () => {
     avatar: userAvatar
   });
 
+  // Stable refs for values used inside socket event handlers
+  // This prevents the socket useEffect from re-running on every state change
+  const toastRef = useRef(toast);
+  const currentUserRef = useRef(currentUser);
+  const userAvatarRef = useRef(userAvatar);
+  const isAdminRef = useRef(isAdmin);
+
   // Socket connection
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const renameAttemptRef = useRef<{ from: string; to: string } | null>(null);
   const joinRetryRef = useRef<number>(0);
 
-  // Initialize socket connection
+  // Initialize socket connection — mount once, use refs for all mutable values
   useEffect(() => {
     // Determine backend socket URL for dev/prod
     let url = '';
@@ -168,7 +176,7 @@ export const Chatroom = () => {
       console.warn("[socket] disconnected", reason);
       setIsConnected(false);
       if (reason !== "io client disconnect") {
-        toast({
+        toastRef.current({
           title: "Disconnected",
           description: "Connection to chat server lost. Reconnecting...",
           variant: "default",
@@ -179,7 +187,7 @@ export const Chatroom = () => {
     const handleConnectError = (err: any) => {
       console.error("[socket] connect_error", err);
       if (err.message !== "xhr poll error") {
-        toast({
+        toastRef.current({
           title: "Connection Error",
           description: "Unable to connect to the chat server. Please try again.",
           variant: "destructive",
@@ -203,15 +211,15 @@ export const Chatroom = () => {
       setUsers(usersWithOnlineStatus);
 
       // Update the current user's avatar from the server if it's different
-      const currentUserData = usersWithOnlineStatus.find(u => u.username === currentUser);
-      if (currentUserData?.avatar && currentUserData.avatar !== userAvatar) {
+      const currentUserData = usersWithOnlineStatus.find(u => u.username === currentUserRef.current);
+      if (currentUserData?.avatar && currentUserData.avatar !== userAvatarRef.current) {
         console.log('[handleUsers] Updating local avatar from server');
         setUserAvatar(currentUserData.avatar);
         userRef.current = { ...userRef.current, avatar: currentUserData.avatar };
       }
 
       // If we can see ourselves in presence, consider join successful -> reset retry counter
-      if (currentUser && usersWithOnlineStatus.some(u => u.username === currentUser)) {
+      if (currentUserRef.current && usersWithOnlineStatus.some(u => u.username === currentUserRef.current)) {
         joinRetryRef.current = 0;
       }
     };
@@ -231,7 +239,7 @@ export const Chatroom = () => {
       if (renameAttemptRef.current) {
         const { from, to } = renameAttemptRef.current;
         renameAttemptRef.current = null;
-        toast({
+        toastRef.current({
           title: "Name change failed",
           description: err?.message || `Could not change name to "${to}"`,
           variant: "destructive",
@@ -246,7 +254,7 @@ export const Chatroom = () => {
       const attempts = joinRetryRef.current;
       if (attempts < 3 && userRef.current.username) {
         joinRetryRef.current = attempts + 1;
-        toast({
+        toastRef.current({
           title: "Retrying join",
           description: `Username in use, retrying (${joinRetryRef.current}/3)...`,
         });
@@ -262,7 +270,7 @@ export const Chatroom = () => {
         return;
       }
       // Exhausted retries -> prompt for a different name
-      toast({
+      toastRef.current({
         title: "Username Error",
         description: err.message || 'Please choose a different username.',
         variant: "destructive"
@@ -288,7 +296,7 @@ export const Chatroom = () => {
         setIsAdmin(true);
         setShowAdminModal(false);
         setAdminError(undefined);
-        toast({
+        toastRef.current({
           title: '🛡️ Admin Mode Enabled',
           description: 'You now have access to moderation controls.',
           duration: 3000
@@ -298,7 +306,7 @@ export const Chatroom = () => {
         localStorage.removeItem('adminRemembered');
         const errorMsg = payload?.error || 'Invalid admin password. Please try again.';
         setAdminError(errorMsg);
-        toast({
+        toastRef.current({
           title: 'Authentication Failed',
           description: errorMsg,
           variant: 'destructive',
@@ -311,7 +319,7 @@ export const Chatroom = () => {
       setIsAdmin(false);
       setAdminError(undefined);
       localStorage.removeItem('adminRemembered');
-      toast({
+      toastRef.current({
         title: 'Admin Mode Disabled',
         description: 'You have logged out of admin mode.',
         duration: 2000
@@ -323,15 +331,15 @@ export const Chatroom = () => {
       if (msg === 'Not authorized') {
         setIsAdmin(false);
       }
-      toast({ title: 'Admin', description: msg, variant: 'destructive' });
+      toastRef.current({ title: 'Admin', description: msg, variant: 'destructive' });
     };
 
     const handleAdminMessageDeleted = (payload: any) => {
       const id = payload?.messageId;
       if (!id) return;
       setMessages((prev) => prev.filter((m) => m.id !== id));
-      if (isAdmin) {
-        toast({
+      if (isAdminRef.current) {
+        toastRef.current({
           title: '✓ Message Deleted',
           description: 'The message has been removed.',
           duration: 2000
@@ -342,7 +350,7 @@ export const Chatroom = () => {
     const handleAdminUserKicked = (payload: any) => {
       const name = payload?.username;
       if (name) {
-        toast({ title: 'User kicked', description: `${name} was disconnected.` });
+        toastRef.current({ title: 'User kicked', description: `${name} was disconnected.` });
       }
     };
 
@@ -350,9 +358,9 @@ export const Chatroom = () => {
       console.log('[socket] reaction_updated', payload);
       setMessages(prev => prev.map(msg => {
         if (msg.id !== payload.messageId) return msg;
-        
+
         const reactions = { ...(msg.reactions || {}) };
-        
+
         if (payload.action === 'add') {
           if (!reactions[payload.emoji]) {
             reactions[payload.emoji] = [];
@@ -368,7 +376,7 @@ export const Chatroom = () => {
             }
           }
         }
-        
+
         return { ...msg, reactions };
       }));
     };
@@ -415,7 +423,8 @@ export const Chatroom = () => {
       console.log("[socket] Disconnecting...");
       socketInstance.disconnect();
     };
-  }, [currentUser, userAvatar, toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);  // Mount once — all mutable values accessed via refs
 
   const handleAdminLogin = useCallback((password: string, rememberMe: boolean = false) => {
     if (!socket?.connected) {
@@ -500,10 +509,21 @@ export const Chatroom = () => {
     socket.emit('admin:kickUser', { username });
   }, [socket]);
 
-  // Update user ref when currentUser or userAvatar changes
+  // Update all refs when their corresponding state changes
+  // This keeps the socket event handlers' closures current without re-creating the socket
   useEffect(() => {
     userRef.current = { username: currentUser, avatar: userAvatar };
+    currentUserRef.current = currentUser;
+    userAvatarRef.current = userAvatar;
   }, [currentUser, userAvatar]);
+
+  useEffect(() => {
+    toastRef.current = toast;
+  }, [toast]);
+
+  useEffect(() => {
+    isAdminRef.current = isAdmin;
+  }, [isAdmin]);
 
   // Keep modal visibility in sync with presence of a username
   useEffect(() => {
@@ -819,17 +839,19 @@ export const Chatroom = () => {
         <div className="flex-1 overflow-hidden flex flex-col">
           {/* Messages List */}
           <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 gap-4 flex flex-col-reverse">
-            {messages.slice().reverse().map((message) => (
-              <ChatMessage
-                key={message.id}
-                message={message}
-                currentUser={currentUser}
-                isAdmin={isAdmin}
-                onDeleteMessage={handleAdminDeleteMessage}
-                onAddReaction={handleAddReaction}
-                onRemoveReaction={handleRemoveReaction}
-              />
-            ))}
+            <TimeTickProvider>
+              {messages.slice().reverse().map((message) => (
+                <ChatMessage
+                  key={message.id}
+                  message={message}
+                  currentUser={currentUser}
+                  isAdmin={isAdmin}
+                  onDeleteMessage={handleAdminDeleteMessage}
+                  onAddReaction={handleAddReaction}
+                  onRemoveReaction={handleRemoveReaction}
+                />
+              ))}
+            </TimeTickProvider>
           </div>
 
           {/* Input */}

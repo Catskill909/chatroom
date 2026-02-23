@@ -34,7 +34,7 @@ export const ChatInput = ({ onSendMessage }: { onSendMessage: (msg: ChatInputMes
   const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null);
   const [audioMeta, setAudioMeta] = useState<{ title?: string; artist?: string; album?: string; coverUrl?: string } | null>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
-  
+
   // --- UPLOAD PROGRESS STATE ---
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -176,14 +176,14 @@ export const ChatInput = ({ onSendMessage }: { onSendMessage: (msg: ChatInputMes
         return;
       }
     }
-    
+
     // If we uploaded an audio file, give time for the 100% progress to be visible
     if (audioFile && isUploading) {
       console.log('[DEBUG] Waiting for progress indicator to show completion');
       await new Promise(resolve => setTimeout(resolve, 1200));
       console.log('[DEBUG] Progress display complete, proceeding with message');
     }
-    
+
     if (message.trim() || selectedImage || audioFile) {
       // Always use backend-served coverUrl, never Blob
       let safeCoverUrl = coverUrl;
@@ -202,8 +202,10 @@ export const ChatInput = ({ onSendMessage }: { onSendMessage: (msg: ChatInputMes
       onSendMessage(msgObj);
       setMessage("");
       setSelectedImage(null);
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
       setImagePreview(null);
       setAudioFile(null);
+      if (audioPreviewUrl) URL.revokeObjectURL(audioPreviewUrl);
       setAudioPreviewUrl(null);
       setAudioMeta(null);
       // Reset upload progress
@@ -228,6 +230,7 @@ export const ChatInput = ({ onSendMessage }: { onSendMessage: (msg: ChatInputMes
   };
 
   const removeImage = () => {
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
     setSelectedImage(null);
     setImagePreview(null);
     if (fileInputRef.current) {
@@ -269,6 +272,7 @@ export const ChatInput = ({ onSendMessage }: { onSendMessage: (msg: ChatInputMes
             variant="secondary"
             size="sm"
             onClick={() => {
+              if (audioPreviewUrl) URL.revokeObjectURL(audioPreviewUrl);
               setAudioFile(null);
               setAudioPreviewUrl(null);
               setAudioMeta(null);
@@ -296,7 +300,7 @@ export const ChatInput = ({ onSendMessage }: { onSendMessage: (msg: ChatInputMes
             <span className="text-xs text-muted-foreground font-mono">{uploadProgress}%</span>
           </div>
           <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
-            <div 
+            <div
               className="h-full bg-gradient-to-r from-primary to-primary/80 rounded-full transition-all duration-300 ease-out"
               style={{ width: `${uploadProgress}%` }}
             ></div>
@@ -414,7 +418,7 @@ export const ChatInput = ({ onSendMessage }: { onSendMessage: (msg: ChatInputMes
                   if (metadata.common.picture && metadata.common.picture.length > 0) {
                     const pic = metadata.common.picture[0];
                     try {
-                      coverUrl = URL.createObjectURL(new Blob([pic.data], { type: pic.format }));
+                      coverUrl = URL.createObjectURL(new Blob([new Uint8Array(pic.data)], { type: pic.format }));
                       console.log('[DEBUG] Cover art Blob URL:', coverUrl, pic);
                     } catch (coverErr) {
                       console.error('[DEBUG] Failed to create cover art Blob URL:', coverErr, pic);

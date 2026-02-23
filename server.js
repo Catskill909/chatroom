@@ -18,9 +18,9 @@ const PORT = process.env.PORT || 3000;
 
 // Allowed origins for CORS, configurable via environment
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '*')
-  .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean);
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
 const IS_WILDCARD_ORIGIN = (ALLOWED_ORIGINS.length === 1 && ALLOWED_ORIGINS[0] === '*');
 const CORS_ORIGIN = IS_WILDCARD_ORIGIN ? '*' : ALLOWED_ORIGINS;
 const CORS_CREDENTIALS = !IS_WILDCARD_ORIGIN;
@@ -205,16 +205,21 @@ app.get('/stream/:id', async (req, res) => {
     const streamId = req.params.id;
     // Append ?_ic2=1 to prevent Icecast Safari redirect
     const streamUrl = `https://supersoul.site:8000/${streamId}?_ic2=1`;
+    const controller = new AbortController();
+    // Abort upstream fetch when client disconnects
+    req.on('close', () => controller.abort());
     try {
-        const streamRes = await fetch(streamUrl);
+        const streamRes = await fetch(streamUrl, { signal: controller.signal });
         if (!streamRes.ok) {
             res.status(streamRes.status).send('Failed to fetch stream');
             return;
         }
         res.setHeader('Content-Type', streamRes.headers.get('content-type') || 'audio/mpeg');
-        // Pipe audio data
+        // Pipe audio data and clean up on close
         streamRes.body.pipe(res);
+        res.on('close', () => { try { streamRes.body?.destroy?.(); } catch { } });
     } catch (err) {
+        if (err.name === 'AbortError') return; // Client disconnected, expected
         res.status(500).send('Stream proxy error');
     }
 });
@@ -222,7 +227,7 @@ app.get('/stream/:id', async (req, res) => {
 // Add link preview endpoint
 app.get('/api/link-preview', async (req, res) => {
     const { url } = req.query;
-    
+
     if (!url) {
         return res.status(400).json({ error: 'URL parameter is required' });
     }
@@ -241,14 +246,14 @@ app.get('/api/link-preview', async (req, res) => {
                 'accept-language': 'en-US,en;q=0.5',
             },
         });
-        
+
         console.log(`[Link Preview] Successfully fetched preview for ${url}`);
         res.json(preview);
     } catch (error) {
         console.error(`[Link Preview] Error fetching preview for ${url}:`, error);
-        res.status(500).json({ 
+        res.status(500).json({
             error: 'Failed to fetch link preview',
-            details: error.message 
+            details: error.message
         });
     }
 });
@@ -295,6 +300,21 @@ const loginAttempts = new Map();
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOGIN_ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
 
+// Periodic cleanup of stale login attempts and expired admin sessions
+setInterval(() => {
+    const now = Date.now();
+    for (const [id, attempts] of loginAttempts) {
+        if (now - attempts.firstAttempt > LOGIN_ATTEMPT_WINDOW_MS) {
+            loginAttempts.delete(id);
+        }
+    }
+    for (const [id, session] of adminSessions) {
+        if (session.expiresAt < now) {
+            adminSessions.delete(id);
+        }
+    }
+}, 5 * 60 * 1000);
+
 function logAdminAction(socketId, action, details = {}) {
     const timestamp = new Date().toISOString();
     console.log(`[ADMIN ACTION] ${timestamp} | Socket: ${socketId} | Action: ${action} | Details:`, JSON.stringify(details));
@@ -303,16 +323,16 @@ function logAdminAction(socketId, action, details = {}) {
 function checkRateLimit(socketId) {
     const now = Date.now();
     const attempts = loginAttempts.get(socketId) || { count: 0, firstAttempt: now };
-    
+
     if (now - attempts.firstAttempt > LOGIN_ATTEMPT_WINDOW_MS) {
         loginAttempts.set(socketId, { count: 1, firstAttempt: now });
         return true;
     }
-    
+
     if (attempts.count >= MAX_LOGIN_ATTEMPTS) {
         return false;
     }
-    
+
     loginAttempts.set(socketId, { count: attempts.count + 1, firstAttempt: attempts.firstAttempt });
     return true;
 }
@@ -356,17 +376,12 @@ function tryResolveUploadPath(urlPath) {
 io.on('connection', (socket) => {
     console.log(`[connect] ${socket.id}`);
 
-    // Catch-all event logger for debugging
-    socket.onAny((event, ...args) => {
-        console.log(`[backend] onAny event:`, event, args);
-    });
-
     // Send full state to new client
     (async () => {
         // Users list (ephemeral, memory-only)
         const uniqueUsers = Object.values(users).filter((u, i, arr) => arr.findIndex(other => other.username === u.username) === i);
         socket.emit('users', uniqueUsers);
-        console.log(`[emit] users (memory) ->`, uniqueUsers);
+        console.log(`[emit] users (memory) count ->`, uniqueUsers.length);
 
         try {
             if (mongoose.connection.readyState === 1) {
@@ -410,7 +425,7 @@ io.on('connection', (socket) => {
         users[socket.id] = { username, avatar, isOnline: true };
         const uniqueUsers = Object.values(users).filter((u, i, arr) => arr.findIndex(other => other.username === u.username) === i);
         io.emit('users', uniqueUsers);
-        console.log(`[emit] users (memory) ->`, uniqueUsers);
+        console.log(`[emit] users (memory) count ->`, uniqueUsers.length);
     });
 
     // Immediate leave handler for tab/window close
@@ -432,19 +447,12 @@ io.on('connection', (socket) => {
         }
         const uniqueUsers = Object.values(users).filter((u, i, arr) => arr.findIndex(other => other.username === u.username) === i);
         io.emit('users', uniqueUsers);
-        console.log(`[emit] users (memory) ->`, uniqueUsers);
+        console.log(`[emit] users (memory) count ->`, uniqueUsers.length);
     });
 
     socket.on('message', async (msg) => {
-        console.log(`[recv] message received from ${socket.id}`);
+        console.log(`[recv] message from ${socket.id} (image: ${msg.image ? msg.image.length + 'B' : 'none'}, audio: ${msg.audio ? 'yes' : 'no'}, text: ${msg.content ? msg.content.length + 'chars' : 'empty'})`);
 
-        // Check if message contains an image and log accordingly
-        if (msg.image) {
-            console.log(`[recv] message with image, image data length: ${msg.image.length}`);
-            console.log(`[recv] image data starts with: ${msg.image.substring(0, 50)}...`);
-        } else {
-            console.log(`[recv] text-only message: "${msg.content}"`);
-        }
 
         // Persist to DB if available; keep memory as fallback
         try {
@@ -461,7 +469,7 @@ io.on('connection', (socket) => {
             messages = messages.slice(-1000);
         }
         io.emit('message', msg);
-        console.log(`[emit] broadcasted message to all clients`);
+        console.log(`[emit] broadcasted message to ${io.engine.clientsCount} clients`);
     });
 
     socket.on('admin:login', async ({ password }) => {
@@ -470,10 +478,10 @@ io.on('connection', (socket) => {
             logAdminAction(socket.id, 'LOGIN_RATE_LIMITED');
             return;
         }
-        
+
         const pwd = typeof password === 'string' ? password : '';
         const ok = Boolean(ADMIN_PASSWORD) && pwd === ADMIN_PASSWORD;
-        
+
         if (ok) {
             setSocketAdmin(socket);
             loginAttempts.delete(socket.id);
@@ -481,7 +489,7 @@ io.on('connection', (socket) => {
         } else {
             logAdminAction(socket.id, 'LOGIN_FAILED');
         }
-        
+
         socket.emit('admin:loginResult', { success: ok });
     });
 
@@ -588,18 +596,14 @@ io.on('connection', (socket) => {
             // Always broadcast presence from memory
             const uniqueUsers = Object.values(users).filter((u, i, arr) => arr.findIndex(other => other.username === u.username) === i);
             io.emit('users', uniqueUsers);
-            console.log(`[emit] users (memory) ->`, uniqueUsers);
+            console.log(`[emit] users (memory) count ->`, uniqueUsers.length);
         }
     });
 
     // Handle avatar updates
     socket.on('update_avatar', async ({ username, avatar }) => {
-        console.log(`[update_avatar] Received request to update avatar for ${username}`);
-        console.log(`[update_avatar] Current users:`, Object.values(users).map(u => ({
-            username: u.username,
-            avatar: u.avatar ? 'has-avatar' : 'no-avatar'
-        })));
-        
+        console.log(`[update_avatar] Updating avatar for ${username}`);
+
         let found = false;
         // Find and update the user's avatar
         for (const [id, user] of Object.entries(users)) {
@@ -610,12 +614,12 @@ io.on('connection', (socket) => {
                 break;
             }
         }
-        
+
         if (!found) {
             console.warn(`[update_avatar] User ${username} not found in users list`);
             // continue to DB update if possible
         }
-        
+
         try {
             if (mongoose.connection.readyState === 1) {
                 await User.updateOne({ username }, { $set: { avatar } });
@@ -626,13 +630,13 @@ io.on('connection', (socket) => {
 
         // Broadcast the updated users list (always memory)
         const uniqueUsers = Object.values(users).filter((u, i, arr) => arr.findIndex(other => other.username === u.username) === i);
-        console.log(`[update_avatar] Broadcasting updated users list (memory):`, uniqueUsers.map(u => ({ username: u.username, avatar: u.avatar ? 'has-avatar' : 'no-avatar' })));
+        console.log(`[update_avatar] Broadcasting updated users count: ${uniqueUsers.length}`);
         io.emit('users', uniqueUsers);
     });
 
     socket.on('add_reaction', async ({ messageId, emoji, username }) => {
         console.log(`[add_reaction] ${username} adding ${emoji} to message ${messageId}`);
-        
+
         try {
             // Update in database if available
             if (mongoose.connection.readyState === 1) {
@@ -649,7 +653,7 @@ io.on('connection', (socket) => {
                     }
                 }
             }
-            
+
             // Update in memory
             const msg = messages.find(m => m.id === messageId);
             if (msg) {
@@ -663,7 +667,7 @@ io.on('connection', (socket) => {
                     msg.reactions[emoji].push(username);
                 }
             }
-            
+
             // Broadcast reaction update
             io.emit('reaction_updated', { messageId, emoji, username, action: 'add' });
         } catch (err) {
@@ -673,7 +677,7 @@ io.on('connection', (socket) => {
 
     socket.on('remove_reaction', async ({ messageId, emoji, username }) => {
         console.log(`[remove_reaction] ${username} removing ${emoji} from message ${messageId}`);
-        
+
         try {
             // Update in database if available
             if (mongoose.connection.readyState === 1) {
@@ -689,7 +693,7 @@ io.on('connection', (socket) => {
                     await msg.save();
                 }
             }
-            
+
             // Update in memory
             const msg = messages.find(m => m.id === messageId);
             if (msg && msg.reactions && msg.reactions[emoji]) {
@@ -698,7 +702,7 @@ io.on('connection', (socket) => {
                     delete msg.reactions[emoji];
                 }
             }
-            
+
             // Broadcast reaction update
             io.emit('reaction_updated', { messageId, emoji, username, action: 'remove' });
         } catch (err) {
