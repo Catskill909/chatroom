@@ -129,16 +129,84 @@ export const ChatMessage = ({ message, currentUser, isAdmin, onDeleteMessage, on
               {truncateTimeUnits(formatDistanceToNow(msgDate, { addSuffix: true }))}
             </span>
 
-            {isAdmin && onDeleteMessage && (
-              <button
-                type="button"
-                aria-label="Delete message (Admin)"
-                className="ml-auto inline-flex items-center justify-center h-7 w-7 rounded-md hover:bg-red-500/20 text-white/50 hover:text-red-400 transition-all hover:scale-110 group"
-                onClick={() => setDeleteOpen(true)}
-              >
-                <Trash2 className="h-4 w-4 group-hover:animate-pulse" />
-              </button>
-            )}
+            {/* Reaction Picker Button */}
+            <div className="ml-auto flex items-center space-x-1">
+              <Popover open={showReactionPicker} onOpenChange={setShowReactionPicker}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className={`
+                      inline-flex items-center justify-center w-7 h-7 rounded-md
+                      transition-all duration-200 ease-out
+                      hover:scale-110 active:scale-95 shadow-sm
+                      ${showReactionPicker
+                        ? 'bg-blue-500/30 text-white border border-blue-400/50'
+                        : 'bg-white/10 text-white/70 border border-white/20 hover:bg-white/20 hover:text-white hover:border-white/40 shadow-indigo-500/10'
+                      }
+                    `}
+                    title="Add reaction"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="end"
+                  side="bottom"
+                  sideOffset={4}
+                  className="p-0 w-auto bg-transparent border-none shadow-2xl rounded-2xl overflow-hidden z-50"
+                  onOpenAutoFocus={(e) => e.preventDefault()}
+                >
+                  <div className="bg-[#1a1a1a] backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden">
+                    {/* Quick Reactions Bar */}
+                    <div className="flex items-center gap-1 p-2 border-b border-white/10 bg-white/5">
+                      {QUICK_REACTIONS.map(emoji => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          onClick={() => {
+                            handleReactionClick(emoji);
+                          }}
+                          className="w-9 h-9 flex items-center justify-center text-xl rounded-lg hover:bg-white/10 transition-all duration-150 hover:scale-125 active:scale-100"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Full Emoji Picker */}
+                    <Picker
+                      data={data}
+                      theme="dark"
+                      onEmojiSelect={(emoji: any) => {
+                        const emojiChar = emoji.native || "";
+                        if (emojiChar) {
+                          handleReactionClick(emojiChar);
+                        }
+                      }}
+                      previewPosition="none"
+                      skinTonePosition="search"
+                      maxFrequentRows={2}
+                      perLine={8}
+                      emojiSize={24}
+                      emojiButtonSize={32}
+                      navPosition="bottom"
+                      searchPosition="sticky"
+                    />
+                  </div>
+                </PopoverContent>
+              </Popover>
+
+              {isAdmin && onDeleteMessage && (
+                <button
+                  type="button"
+                  aria-label="Delete message (Admin)"
+                  className="inline-flex items-center justify-center h-7 w-7 rounded-md hover:bg-red-500/20 text-white/50 hover:text-red-400 transition-all hover:scale-110 group"
+                  onClick={() => setDeleteOpen(true)}
+                >
+                  <Trash2 className="h-4 w-4 group-hover:animate-pulse" />
+                </button>
+              )}
+            </div>
           </div>
 
           {isAdmin && onDeleteMessage && (
@@ -232,7 +300,12 @@ export const ChatMessage = ({ message, currentUser, isAdmin, onDeleteMessage, on
           {/* Text Message Rendering with Link Detection */}
           {message.content && (
             <div className="space-y-2">
-              <p className="text-sm leading-relaxed break-words text-white whitespace-pre-wrap">
+              <p className={`leading-relaxed break-words text-white whitespace-pre-wrap ${(() => {
+                // Helper to check if string contains ONLY emojis (and whitespace)
+                const emojiRegex = /^(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff]|\s)+$/;
+                return emojiRegex.test(message.content) ? 'text-5xl py-2' : 'text-sm';
+              })()
+                }`}>
                 {message.content.split(/(https?:\/\/[^\s]+)/g).map((part, i) => {
                   // Check if the part is a URL
                   if (part.match(/^https?:\/\//)) {
@@ -278,7 +351,6 @@ export const ChatMessage = ({ message, currentUser, isAdmin, onDeleteMessage, on
             </div>
           )}
 
-          {/* Reactions Display and Picker - Modern Material Design */}
           <div className="mt-3 flex flex-wrap items-center gap-1.5">
             {/* Display existing reactions as pills */}
             {message.reactions && Object.entries(message.reactions).map(([emoji, users]) => {
@@ -307,71 +379,6 @@ export const ChatMessage = ({ message, currentUser, isAdmin, onDeleteMessage, on
                 </button>
               );
             })}
-
-            {/* Add Reaction Button with Popover */}
-            <Popover open={showReactionPicker} onOpenChange={setShowReactionPicker}>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className={`
-                    inline-flex items-center justify-center w-8 h-8 rounded-full
-                    transition-all duration-200 ease-out
-                    hover:scale-110 active:scale-95
-                    ${showReactionPicker
-                      ? 'bg-white/15 text-white border border-white/20'
-                      : 'bg-white/5 text-white/40 border border-transparent hover:bg-white/10 hover:text-white/70'
-                    }
-                  `}
-                  title="Add reaction"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent
-                align="start"
-                side="top"
-                sideOffset={8}
-                className="p-0 w-auto bg-transparent border-none shadow-2xl rounded-2xl overflow-hidden"
-              >
-                <div className="bg-background/95 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden">
-                  {/* Quick Reactions Bar */}
-                  <div className="flex items-center gap-1 p-2 border-b border-white/10 bg-white/5">
-                    {QUICK_REACTIONS.map(emoji => (
-                      <button
-                        key={emoji}
-                        type="button"
-                        onClick={() => {
-                          handleReactionClick(emoji);
-                        }}
-                        className="w-9 h-9 flex items-center justify-center text-xl rounded-lg hover:bg-white/10 transition-all duration-150 hover:scale-125 active:scale-100"
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Full Emoji Picker */}
-                  <Picker
-                    data={data}
-                    theme="dark"
-                    onEmojiSelect={(emoji: any) => {
-                      const emojiChar = emoji.native || "";
-                      if (emojiChar) {
-                        handleReactionClick(emojiChar);
-                      }
-                    }}
-                    previewPosition="none"
-                    skinTonePosition="search"
-                    maxFrequentRows={2}
-                    perLine={8}
-                    emojiSize={24}
-                    emojiButtonSize={32}
-                    navPosition="bottom"
-                    searchPosition="sticky"
-                  />
-                </div>
-              </PopoverContent>
-            </Popover>
           </div>
         </div>
       </div>

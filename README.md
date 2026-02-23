@@ -126,6 +126,24 @@ if (import.meta.env.VITE_SOCKET_URL && !import.meta.env.VITE_SOCKET_URL.includes
 
 ---
 
+## 🛡️ Local Development Guardrails
+
+To ensure the servers start correctly and avoid port conflicts/zombie processes, use the automated startup script. This is the **only** recommended way to start the local development environment.
+
+### 🚀 One-Command Startup
+
+```bash
+./start-dev.sh
+```
+
+**What this script does for you:**
+- 🔍 **Pre-flight Check**: Automatically detects and force-kills any zombie processes on ports 3000 and 5173.
+- 📝 **Environment Sync**: Ensures your `.env` file exists (copies from `.env.example` if missing).
+- 🚀 **Parallel Startup**: Starts the backend database connection and the frontend development server.
+- 🏥 **Health Verification**: Periodically pings the backend `/health` endpoint until it's ready before letting you know it's "All Systems Go".
+
+---
+
 ## Developer Quickstart Checklist
 
 - Ensure `.env` exists. Minimum:
