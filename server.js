@@ -543,6 +543,41 @@ io.on('connection', (socket) => {
         io.emit('admin:messageDeleted', { messageId: id });
     });
 
+    socket.on('admin:deleteAllMessages', async () => {
+        if (!isSocketAdmin(socket)) {
+            socket.emit('admin:error', { message: 'Not authorized' });
+            return;
+        }
+
+        const allMessages = [...messages];
+
+        try {
+            if (mongoose.connection.readyState === 1) {
+                await Message.deleteMany({});
+            }
+        } catch (e) {
+            console.error('[admin] DB deleteAll error:', e);
+        }
+
+        messages = [];
+
+        for (const msg of allMessages) {
+            try {
+                const audioPath = tryResolveUploadPath(msg?.audio);
+                if (audioPath) await safeUnlinkIfExists(audioPath);
+                const coverPath = tryResolveUploadPath(msg?.audioMeta?.coverUrl);
+                if (coverPath) await safeUnlinkIfExists(coverPath);
+                const imagePath = tryResolveUploadPath(msg?.image);
+                if (imagePath) await safeUnlinkIfExists(imagePath);
+            } catch (e) {
+                console.error('[admin] cleanup error:', e);
+            }
+        }
+
+        logAdminAction(socket.id, 'DELETE_ALL_MESSAGES', { count: allMessages.length });
+        io.emit('admin:allMessagesDeleted');
+    });
+
     socket.on('admin:kickUser', async ({ username }) => {
         if (!isSocketAdmin(socket)) {
             socket.emit('admin:error', { message: 'Not authorized' });

@@ -347,6 +347,17 @@ export const Chatroom = () => {
       }
     };
 
+    const handleAdminAllMessagesDeleted = () => {
+      setMessages([]);
+      if (isAdminRef.current) {
+        toastRef.current({
+          title: '✓ All Messages Deleted',
+          description: 'Chat history has been cleared.',
+          duration: 2000
+        });
+      }
+    };
+
     const handleAdminUserKicked = (payload: any) => {
       const name = payload?.username;
       if (name) {
@@ -385,6 +396,7 @@ export const Chatroom = () => {
     socketInstance.on('admin:logoutResult', handleAdminLogoutResult);
     socketInstance.on('admin:error', handleAdminError);
     socketInstance.on('admin:messageDeleted', handleAdminMessageDeleted);
+    socketInstance.on('admin:allMessagesDeleted', handleAdminAllMessagesDeleted);
     socketInstance.on('admin:userKicked', handleAdminUserKicked);
     socketInstance.on('reaction_updated', handleReactionUpdated);
 
@@ -415,6 +427,7 @@ export const Chatroom = () => {
       socketInstance.off('admin:logoutResult', handleAdminLogoutResult);
       socketInstance.off('admin:error', handleAdminError);
       socketInstance.off('admin:messageDeleted', handleAdminMessageDeleted);
+      socketInstance.off('admin:allMessagesDeleted', handleAdminAllMessagesDeleted);
       socketInstance.off('admin:userKicked', handleAdminUserKicked);
       socketInstance.off('reaction_updated', handleReactionUpdated);
       window.removeEventListener('beforeunload', beforeUnloadHandler);
@@ -502,6 +515,11 @@ export const Chatroom = () => {
   const handleAdminDeleteMessage = useCallback((messageId: string) => {
     if (!socket?.connected) return;
     socket.emit('admin:deleteMessage', { messageId });
+  }, [socket]);
+
+  const handleAdminDeleteAllMessages = useCallback(() => {
+    if (!socket?.connected) return;
+    socket.emit('admin:deleteAllMessages');
   }, [socket]);
 
   const handleAdminKickUser = useCallback((username: string) => {
@@ -902,6 +920,7 @@ export const Chatroom = () => {
         messages={messages}
         onKickUser={handleAdminKickUser}
         onDeleteMessage={handleAdminDeleteMessage}
+        onDeleteAllMessages={handleAdminDeleteAllMessages}
         onLogout={() => {
           handleAdminLogout();
           setShowAdminPanel(false);

@@ -1,4 +1,14 @@
 import { useState } from 'react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -37,6 +47,7 @@ interface AdminPanelProps {
   messages: Message[];
   onKickUser: (username: string) => void;
   onDeleteMessage: (messageId: string) => void;
+  onDeleteAllMessages: () => void;
   onLogout: () => void;
 }
 
@@ -47,9 +58,11 @@ export const AdminPanel = ({
   messages,
   onKickUser,
   onDeleteMessage,
+  onDeleteAllMessages,
   onLogout
 }: AdminPanelProps) => {
   const [selectedTab, setSelectedTab] = useState<'overview' | 'users' | 'messages'>('overview');
+  const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
 
   const onlineUsers = users.filter(u => u.isOnline);
   const messagesLast24h = messages.filter(m => {
@@ -236,6 +249,16 @@ export const AdminPanel = ({
               <div className="space-y-3">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-semibold">Recent Messages ({messages.length})</h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-500 hover:text-red-600 hover:bg-red-500/10 gap-1"
+                    onClick={() => setShowDeleteAllDialog(true)}
+                    disabled={messages.length === 0}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete All
+                  </Button>
                 </div>
 
                 {recentMessages.map((msg) => (
@@ -264,6 +287,26 @@ export const AdminPanel = ({
               </div>
             )}
           </ScrollArea>
+
+      <AlertDialog open={showDeleteAllDialog} onOpenChange={setShowDeleteAllDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete All Messages?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete all {messages.length} messages and cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => { onDeleteAllMessages(); setShowDeleteAllDialog(false); }}
+            >
+              Delete All
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
           {/* Footer */}
           <div className="p-4 border-t bg-card/50">
